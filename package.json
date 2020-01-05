@@ -16,7 +16,7 @@
     "format": "prettier --write **/*.ts",
     "format-check": "prettier --check **/*.ts",
     "spellcheck": "cspell .",
-    "lint": "eslint src/**/*.ts",
+    "lint": "eslint **/*.ts",
     "pack": "ncc build",
     "clean": "rm -rf lib public allure-results",
     "test": "jest",
