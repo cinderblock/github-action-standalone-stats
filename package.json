@@ -1,8 +1,15 @@
 {
-  "name": "typescript-action",
+  "name": "github-action-standalone-stats",
   "version": "0.0.0",
+  "author": "Cameron Tacklind <cameron@tacklind.com>",
+  "license": "MIT",
   "private": true,
-  "description": "TypeScript template action",
+  "description": "GitHub Action that publishes coverage, tests results, and other stats to gh-pages for self-contained pretty charts and badges",
+  "keywords": [
+    "actions",
+    "node",
+    "setup"
+  ],
   "main": "lib/main.js",
   "scripts": {
     "build": "tsc",
@@ -11,19 +18,13 @@
     "lint": "eslint src/**/*.ts",
     "pack": "ncc build",
     "test": "jest",
+    "prepare": "npm run build",
     "all": "npm run build && npm run format && npm run lint && npm run pack && npm test"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/actions/typescript-action.git"
+    "url": "git+https://github.com/cinderblock/github-action-standalone-stats.git"
   },
-  "keywords": [
-    "actions",
-    "node",
-    "setup"
-  ],
-  "author": "YourNameOrOrganization",
-  "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.2.0"
   },
@@ -32,6 +33,7 @@
     "@types/node": "^12.7.12",
     "@typescript-eslint/parser": "^2.8.0",
     "@zeit/ncc": "^0.20.5",
+    "cspell": "^4.0.44",
     "eslint": "^5.16.0",
     "eslint-plugin-github": "^2.0.0",
     "eslint-plugin-jest": "^22.21.0",

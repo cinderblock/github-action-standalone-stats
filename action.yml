@@ -1,10 +1,21 @@
-name: 'Your name here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
+# https://help.github.com/en/articles/metadata-syntax-for-github-actions
+
+name: Standalone Stats
+description: Publish coverage, tests results, and other stats to gh-pages for self-contained pretty charts and badges
+author: Cameron Tacklind <cameron@tacklind.com>
 inputs:
-  myInput:              # change this
-    description: 'input description here'
-    default: 'default value if applicable'
+  stats-branch:
+    required: false
+    description: Which branch folder to store the historical build stats in
+    default: build-stats
+  stats-repo:
+    required: false
+    description: Which repository to store the historical build stats in
+    default: '' # Current
+  pages-dir:
+    required: false
+    description: Which folder in the pages-branch to store the built files in
+    default: action-stats
 runs:
   using: 'node12'
-  main: 'dist/index.js'
+  main: 'lib/index.js'

@@ -1,34 +1,72 @@
-<p align="center">
-  <a href="https://github.com/actions/typescript-action/actions"><img alt="typescript-action status" src="https://github.com/actions/typescript-action/workflows/build-test/badge.svg"></a>
-</p>
+## GitHub Badge
 
-# Create a JavaScript Action using TypeScript
+Normally, we're restricted to simple badges like this.
 
-Use this template to bootstrap the creation of a JavaScript action.:rocket:
+[![cinderblock/github-action-standalone-stats status](https://github.com/cinderblock/github-action-standalone-stats/workflows/Main/badge.svg?branch=master)](https://github.com/cinderblock/github-action-standalone-stats/actions?query=branch%3Amaster)
 
-This template includes compilication support, tests, a validation workflow, publishing, and versioning guidance.  
+## Standalone Stats
 
-If you are new, there's also a simpler introduction.  See the [Hello World JavaScript Action](https://github.com/actions/hello-world-javascript-action)
+Standalone Stats gives you stats like this.
 
-## Create an action from this template
+[![This is where the magic is gonna be](https://cinderblock.github.io/github-action-standalone-stats/dashboard.svg)](https://cinderblock.github.io/github-action-standalone-stats)
 
-Click the `Use this Template` and provide the new repo details for your action
+## Usage
 
-## Code in Master
+In your GitHub Actions, add a config like this:
+
+```yml
+jobs:
+  self-test-and-generate-stats:
+    runs-on: ubuntu-latest # Anything should work
+    steps:
+      - name: Checkout your code
+        uses: actions/checkout@v1
+
+      - name: Setup your code and run tests that generate reports
+        run: |
+          npm install
+          npm test
+
+      - name: Generate Standalone Stats
+        uses: cinderblock/github-action-standalone-stats
+        # This step will copy coverage reports (and others) to the specified historical branch
+        # and use it to generate some pretty charts
+        with:
+          stats-branch: build-stats
+          stats-repo: '' # Current
+          pages-dir: public/action-stats
+
+      # Publish to gh-pages
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v2
+        env:
+          # ACTIONS_DEPLOY_KEY: ${{ secrets.ACTIONS_DEPLOY_KEY }}
+          # PERSONAL_TOKEN: ${{ secrets.PERSONAL_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH_BRANCH: gh-pages
+          PUBLISH_DIR: public
+```
+
+Add this to your README
+```md
+[![Development Stats](https://<user>.github.io/<repo>/action-stats/<ref>/dashboard.svg)](https://<user>.github.io/<repo>/action-stats)
+```
+
+## Development
 
 Install the dependencies  
 ```bash
-$ npm install
+npm install
 ```
 
-Build the typescript
+Build the typescript (automatic with `npm install`)
 ```bash
-$ npm run build
+npm run build
 ```
 
 Run the tests :heavy_check_mark:  
 ```bash
-$ npm test
+npm test
 
  PASS  ./index.test.js
   ✓ throws invalid number (3ms)
@@ -36,82 +74,4 @@ $ npm test
   ✓ test runs (95ms)
 
 ...
-```
-
-## Change action.yml
-
-The action.yml contains defines the inputs and output for your action.
-
-Update the action.yml with your name, description, inputs and outputs for your action.
-
-See the [documentation](https://help.github.com/en/articles/metadata-syntax-for-github-actions)
-
-## Change the Code
-
-Most toolkit and CI/CD operations involve async operations so the action is run in an async function.
-
-```javascript
-import * as core from '@actions/core';
-...
-
-async function run() {
-  try { 
-      ...
-  } 
-  catch (error) {
-    core.setFailed(error.message);
-  }
-}
-
-run()
-```
-
-See the [toolkit documentation](https://github.com/actions/toolkit/blob/master/README.md#packages) for the various packages.
-
-## Publish to a distribution branch
-
-Actions are run from GitHub repos.  We will create a releases branch and only checkin production modules (core in this case). 
-
-Comment out node_modules in .gitignore and create a releases/v1 branch
-```bash
-# comment out in distribution branches
-# node_modules/
-```
-
-```bash
-$ git checkout -b releases/v1
-$ git commit -a -m "prod dependencies"
-```
-
-```bash
-$ npm prune --production
-$ git add node_modules
-$ git commit -a -m "prod dependencies"
-$ git push origin releases/v1
-```
-
-Your action is now published! :rocket: 
-
-See the [versioning documentation](https://github.com/actions/toolkit/blob/master/docs/action-versioning.md)
-
-## Validate
-
-You can now validate the action by referencing the releases/v1 branch
-
-```yaml
-uses: actions/typescript-action@releases/v1
-with:
-  milliseconds: 1000
-```
-
-See the [actions tab](https://github.com/actions/javascript-action/actions) for runs of this action! :rocket:
-
-## Usage:
-
-After testing you can [create a v1 tag](https://github.com/actions/toolkit/blob/master/docs/action-versioning.md) to reference the stable and tested action
-
-```yaml
-uses: actions/typescript-action@v1
-with:
-  milliseconds: 1000
 ```
