@@ -15,6 +15,7 @@
     "build": "tsc",
     "format": "prettier --write **/*.ts",
     "format-check": "prettier --check **/*.ts",
+    "spellcheck": "cspell .",
     "lint": "eslint src/**/*.ts",
     "pack": "ncc build",
     "test": "jest",
