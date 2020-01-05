@@ -26,7 +26,7 @@
     "unmatched": 0,
     "updated": 0
   },
-  "startTime": 1578217040175,
+  "startTime": 1578219703149,
   "success": false,
   "testResults": [
     {
@@ -36,8 +36,8 @@
       "numPendingTests": 0,
       "numTodoTests": 0,
       "perfStats": {
-        "end": 1578217043617,
-        "start": 1578217040225
+        "end": 1578219706384,
+        "start": 1578219703194
       },
       "snapshot": {
         "added": 0,
@@ -66,7 +66,7 @@
           "ancestorTitles": [
             "standalone-stats"
           ],
-          "duration": 501,
+          "duration": 502,
           "failureMessages": [],
           "fullName": "standalone-stats wait 500 ms",
           "location": null,
