@@ -68,13 +68,17 @@ jobs:
       - name: Make npm colorful
         run: echo "color = always" >> .npmrc
 
-      - run: npm install
+      - name: Install Dependencies and Build
+        run: npm install
 
-      - run: mkdir -p public
+      - name: Make directory for result
+        run: mkdir -p public
 
-      - run: echo Hello > public/index.html
+      - name: Create trivial index page placeholder
+        run: echo Hello > public/index.html
 
-      - run: echo '<svg height="200" width="800"><line x1="0" y1="200" x2="800" y2="0" style="stroke:rgb(255,0,0);stroke-width:2" /></svg>' > public/dashboard.svg
+      - name: Create placeholder dashboard chart
+        run: echo '<svg height="200" width="800"><line x1="0" y1="200" x2="800" y2="0" style="stroke:rgb(255,0,0);stroke-width:2" /></svg>' > public/dashboard.svg
 
       - name: 'Debug: List files'
         run: find * \( -path node_modules -o -path .git \) -print -prune -o -type f -print
@@ -103,7 +107,8 @@ jobs:
     needs: [self-test-and-use, check-format, check-lint, check-spelling]
     runs-on: ubuntu-latest
     steps:
-      - run: "false" # WIP
+      - name: Disable WIP Publish Script
+        run: "false" # WIP
 
       - name: Checkout latest code
         uses: actions/checkout@v1
@@ -111,12 +116,21 @@ jobs:
       - name: Make npm colorful
         run: echo "color = always" >> .npmrc
 
-      - run: npm install
-      - run: npm prune --production
+      - name: Install Dependencies and Build
+        run: npm install
 
-      - run: rm .gitignore
-      - run: git add node_modules
-      - run: git commit -m "prod dependencies"
+      - name: Remove Development (and Build) Dependencies
+        run: npm prune --production
 
-      - run: git push origin releases/v1 #TODO: use tag
-    # https://github.com/actions/toolkit/blob/master/docs/action-versioning.md
+      - name: Don't ignore node_modules for GitHub publish
+        run: rm .gitignore
+
+      - name: Commit built node_modules so that action is standalone
+        run: git add node_modules
+
+      - name: Create new commit with Production Dependencies
+        run: 'git commit -m "Production: Include Dependencies"'
+
+      - name: Push latest release to GitHub
+        run: git push origin releases/v1 #TODO: use tag
+      # https://github.com/actions/toolkit/blob/master/docs/action-versioning.md
