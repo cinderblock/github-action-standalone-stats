@@ -25,7 +25,7 @@ module.exports = {
     [
       'jest-html-reporters',
       {
-        filename: 'public/jest-html-reporters/index.html',
+        filename: 'public/jest-html-reporters.html',
         expand: true,
       },
     ],
