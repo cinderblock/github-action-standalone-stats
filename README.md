@@ -6,8 +6,13 @@ _(GitHub Action Badge)_
 
 [![Click for Full Build Report Metrics](https://cinderblock.github.io/github-action-standalone-stats/dashboard.svg)](https://cinderblock.github.io/github-action-standalone-stats)
 
-- [Test Report](https://cinderblock.github.io/github-action-standalone-stats/jest-stare)
-- [Coverage Report](https://cinderblock.github.io/github-action-standalone-stats/coverage/lcov-report)
+### Other Reporters
+
+- Test Reports:
+  [jest-stare](https://cinderblock.github.io/github-action-standalone-stats/jest-stare)
+  [jest-html-reporters](https://cinderblock.github.io/github-action-standalone-stats/jest-html-reporters)
+- Coverage Report:
+  [lcov](https://cinderblock.github.io/github-action-standalone-stats/coverage/lcov-report)
 
 ## How It Works
 

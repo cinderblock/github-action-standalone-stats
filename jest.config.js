@@ -22,6 +22,13 @@ module.exports = {
         jestGlobalConfigJson: 'globalStuff.json',
       },
     ],
+    [
+      'jest-html-reporters',
+      {
+        filename: 'public/jest-html-reporters/index.html',
+        expand: true,
+      },
+    ],
   ],
   coverageDirectory: 'public/coverage',
 };
