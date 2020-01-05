@@ -75,10 +75,12 @@ jobs:
         run: mkdir -p public
 
       - name: Create trivial index page placeholder
-        run: echo Hello > public/index.html
+        working-directory: public
+        run: echo Hello > index.html
 
       - name: Create placeholder dashboard chart
-        run: echo '<svg height="200" width="800"><line x1="0" y1="200" x2="800" y2="0" style="stroke:rgb(255,0,0);stroke-width:2" /></svg>' > public/dashboard.svg
+        working-directory: public
+        run: echo '<svg height="200" width="800"><line x1="0" y1="200" x2="800" y2="0" style="stroke:rgb(255,0,0);stroke-width:2" /></svg>' > dashboard.svg
 
       - name: 'Debug: List files'
         run: find * \( -path node_modules -o -path .git \) -print -prune -o -type f -print
