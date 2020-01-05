@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1578207416170" clover="3.2.0">
-  <project timestamp="1578207416170" name="All files">
+<coverage generated="1578208865933" clover="3.2.0">
+  <project timestamp="1578208865933" name="All files">
     <metrics statements="16" coveredstatements="5" conditionals="2" coveredconditionals="2" methods="4" coveredmethods="3" elements="22" coveredelements="10" complexity="0" loc="16" ncloc="16" packages="1" files="2" classes="2"/>
     <file name="main.ts" path="/home/runner/work/github-action-standalone-stats/github-action-standalone-stats/src/main.ts">
       <metrics statements="11" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="0"/>

@@ -47,6 +47,13 @@
         "resultHtml": "index.html",
         "resultJson": "jest-results.json"
       }
+    ],
+    [
+      "/home/runner/work/github-action-standalone-stats/github-action-standalone-stats/node_modules/jest-html-reporters/index.js",
+      {
+        "filename": "public/jest-html-reporters.html",
+        "expand": true
+      }
     ]
   ],
   "rootDir": "/home/runner/work/github-action-standalone-stats/github-action-standalone-stats",
