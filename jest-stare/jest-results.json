@@ -26,67 +26,69 @@
     "unmatched": 0,
     "updated": 0
   },
-  "startTime": 1578209093635,
+  "startTime": 1578216898716,
   "success": false,
   "testResults": [
     {
       "failureMessage": null,
-      "leaks": false,
       "numFailingTests": 0,
       "numPassingTests": 3,
       "numPendingTests": 0,
       "numTodoTests": 0,
-      "openHandles": [],
       "perfStats": {
-        "end": 1578209096537,
-        "start": 1578209093673
+        "end": 1578216902346,
+        "start": 1578216898770
       },
-      "skipped": false,
       "snapshot": {
         "added": 0,
         "fileDeleted": false,
         "matched": 0,
         "unchecked": 0,
-        "uncheckedKeys": [],
         "unmatched": 0,
-        "updated": 0
+        "updated": 0,
+        "uncheckedKeys": []
       },
       "testFilePath": "/home/runner/work/github-action-standalone-stats/github-action-standalone-stats/tests/main.ts",
       "testResults": [
         {
-          "ancestorTitles": [],
-          "duration": 7,
+          "ancestorTitles": [
+            "standalone-stats"
+          ],
+          "duration": 5,
           "failureMessages": [],
-          "fullName": "throws invalid number",
-          "invocations": 1,
+          "fullName": "standalone-stats throws invalid number",
           "location": null,
           "numPassingAsserts": 0,
           "status": "passed",
           "title": "throws invalid number"
         },
         {
-          "ancestorTitles": [],
-          "duration": 502,
+          "ancestorTitles": [
+            "standalone-stats"
+          ],
+          "duration": 503,
           "failureMessages": [],
-          "fullName": "wait 500 ms",
-          "invocations": 1,
+          "fullName": "standalone-stats wait 500 ms",
           "location": null,
           "numPassingAsserts": 0,
           "status": "passed",
           "title": "wait 500 ms"
         },
         {
-          "ancestorTitles": [],
-          "duration": 67,
+          "ancestorTitles": [
+            "standalone-stats"
+          ],
+          "duration": 70,
           "failureMessages": [],
-          "fullName": "test runs",
-          "invocations": 1,
+          "fullName": "standalone-stats test runs",
           "location": null,
           "numPassingAsserts": 0,
           "status": "passed",
           "title": "test runs"
         }
-      ]
+      ],
+      "skipped": false,
+      "leaks": false
     }
   ],
   "wasInterrupted": false,
