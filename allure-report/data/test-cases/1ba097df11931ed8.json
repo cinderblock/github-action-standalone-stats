@@ -1,0 +1,46 @@
+{
+  "uid" : "1ba097df11931ed8",
+  "name" : "throws invalid number",
+  "fullName" : "standalone-stats.throws invalid number",
+  "historyId" : "c613fae803b7e5013a9138e22ae637e1",
+  "time" : {
+    "start" : 1578217043036,
+    "stop" : 1578217043042,
+    "duration" : 6
+  },
+  "description" : "",
+  "descriptionHtml" : "",
+  "status" : "passed",
+  "flaky" : false,
+  "newFailed" : false,
+  "beforeStages" : [ ],
+  "afterStages" : [ ],
+  "labels" : [ {
+    "name" : "suite",
+    "value" : "standalone-stats"
+  }, {
+    "name" : "testClass",
+    "value" : "standalone-stats"
+  }, {
+    "name" : "testMethod",
+    "value" : "throws invalid number"
+  }, {
+    "name" : "package",
+    "value" : "standalone-stats"
+  }, {
+    "name" : "resultFormat",
+    "value" : "allure1"
+  } ],
+  "parameters" : [ ],
+  "links" : [ ],
+  "hidden" : false,
+  "retry" : false,
+  "extra" : {
+    "severity" : "normal",
+    "retries" : [ ],
+    "categories" : [ ],
+    "tags" : [ ]
+  },
+  "source" : "1ba097df11931ed8.json",
+  "parameterValues" : [ ]
+}

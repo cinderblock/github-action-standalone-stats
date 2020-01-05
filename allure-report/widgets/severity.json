@@ -1,0 +1,31 @@
+[ {
+  "uid" : "478c7b2c296b588",
+  "name" : "wait 500 ms",
+  "time" : {
+    "start" : 1578217043042,
+    "stop" : 1578217043543,
+    "duration" : 501
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "60f9aa0b90871e6d",
+  "name" : "test runs",
+  "time" : {
+    "start" : 1578217043543,
+    "stop" : 1578217043609,
+    "duration" : 66
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "1ba097df11931ed8",
+  "name" : "throws invalid number",
+  "time" : {
+    "start" : 1578217043036,
+    "stop" : 1578217043042,
+    "duration" : 6
+  },
+  "status" : "passed",
+  "severity" : "normal"
+} ]
