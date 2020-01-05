@@ -12,7 +12,7 @@ Standalone Stats gives you stats like this.
 
 ## How It Works
 
-Inspired by tools like coveralls.io, this tool takes raw coverage report files (`lcov` format) and generates pretty graphs to show coverage over time.
+Inspired by tools like [coveralls.io](https://coveralls.io), this tool takes raw coverage report files (`lcov` format) and generates pretty graphs to show coverage over time.
 Instead of relying on a 3rd party service to host these generated static reports, we generate them ourselves and use github-pages to host the various files.
 
 It is helpful, for generating reports, to have the raw historical data for each execution.
