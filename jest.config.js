@@ -3,9 +3,7 @@ module.exports = {
   moduleFileExtensions: ['ts', 'js'],
   testEnvironment: 'node',
   // testRunner: 'jest-circus/runner', // Not compatible with jest-allure
-  transform: {
-    '^.+\\.ts$': 'ts-jest',
-  },
+  transform: { '^.+\\.ts$': 'ts-jest' },
   collectCoverage: true,
   collectCoverageFrom: ['src/**/*.ts'],
   testRegex: '(/tests/[^/]+)\\.ts$',
