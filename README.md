@@ -8,7 +8,7 @@ Normally, we're restricted to simple badges like this.
 
 Standalone Stats gives you stats like this.
 
-[![This is where the magic is gonna be](https://cinderblock.github.io/github-action-standalone-stats/dashboard.svg)](https://cinderblock.github.io/github-action-standalone-stats)
+[![Click for Full Build Report Metrics](https://cinderblock.github.io/github-action-standalone-stats/dashboard.svg)](https://cinderblock.github.io/github-action-standalone-stats)
 
 ## How It Works
 
