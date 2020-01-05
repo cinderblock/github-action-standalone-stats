@@ -78,6 +78,10 @@ jobs:
         working-directory: public
         run: echo Hello > index.html
 
+      - name: Tell GitHub to not use Jekyll
+        working-directory: public
+        run: touch .nojekyll
+
       - name: Create placeholder dashboard chart
         working-directory: public
         run: echo '<svg height="200" width="800"><line x1="0" y1="200" x2="800" y2="0" style="stroke:rgb(255,0,0);stroke-width:2" /></svg>' > dashboard.svg
