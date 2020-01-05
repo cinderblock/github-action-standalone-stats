@@ -27,4 +27,3 @@ describe('standalone-stats', () => {
     console.log(cp.execSync(`node ${ip}`, options).toString());
   });
 });
-
