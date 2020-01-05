@@ -18,6 +18,7 @@
     "spellcheck": "cspell .",
     "lint": "eslint src/**/*.ts",
     "pack": "ncc build",
+    "clean": "rm -rf lib",
     "test": "jest",
     "prepare": "npm run build",
     "all": "npm run build && npm run format && npm run lint && npm run pack && npm test"
