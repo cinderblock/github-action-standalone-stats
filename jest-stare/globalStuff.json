@@ -1,7 +1,7 @@
 {
   "bail": 0,
   "changedFilesWithAncestor": false,
-  "collectCoverage": false,
+  "collectCoverage": true,
   "collectCoverageFrom": [
     "src/**/*.ts"
   ],
