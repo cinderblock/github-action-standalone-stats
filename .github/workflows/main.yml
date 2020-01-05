@@ -60,6 +60,7 @@ jobs:
         run: npm run spellcheck -- --color
 
   self-test-and-use: # make sure the action works on a clean machine without building
+    name: Test Coverage and Generate Reports
     runs-on: ubuntu-latest
     steps:
       - name: Checkout latest code
