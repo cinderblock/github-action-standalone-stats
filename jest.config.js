@@ -4,9 +4,9 @@ module.exports = {
   testEnvironment: 'node',
   testRunner: 'jest-circus/runner',
   transform: {
-    '^.+\\.ts$': 'ts-jest'
+    '^.+\\.ts$': 'ts-jest',
   },
   collectCoverageFrom: ['src/**/*.ts'],
   testRegex: '(/tests/[^/]+)\\.ts$',
-  verbose: true
-}
+  verbose: true,
+};

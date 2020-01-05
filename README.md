@@ -1,6 +1,6 @@
 Normally, we're restricted to simple badges like this:
 [![cinderblock/github-action-standalone-stats status](https://github.com/cinderblock/github-action-standalone-stats/workflows/Main/badge.svg?branch=master)](https://github.com/cinderblock/github-action-standalone-stats/actions?query=branch%3Amaster)
-*(GitHub Action Badge)*
+_(GitHub Action Badge)_
 
 ## Standalone Stats
 
@@ -53,23 +53,27 @@ jobs:
 ```
 
 Add this to your README
+
 ```md
 [![Development Stats](https://<user>.github.io/<repo>/action-stats/<ref>/dashboard.svg)](https://<user>.github.io/<repo>/action-stats)
 ```
 
 ## Development
 
-Install the dependencies  
+Install the dependencies
+
 ```bash
 npm install
 ```
 
 Build the typescript (automatic with `npm install`)
+
 ```bash
 npm run build
 ```
 
-Run the tests :heavy_check_mark:  
+Run the tests :heavy_check_mark:
+
 ```bash
 npm test
 

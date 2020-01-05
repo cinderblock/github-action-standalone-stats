@@ -1,24 +1,24 @@
 {
-    "version": "0.1",
-    "language": "en",
-    "ignorePaths": [
-        ".git",
-        "node_modules",
-        "coverage",
-        "dist",
-        "lib",
-        "package-lock.json"
-    ],
-    "words": [
-        "cinderblock",
-        "editorconfig",
-        "esbenp",
-        "gitignore",
-        "Interop",
-        "peaceiris",
-        "streetsidesoftware",
-        "Tacklind",
-        "useremail"
-    ],
-    "flagWords": []
+  "version": "0.1",
+  "language": "en",
+  "ignorePaths": [
+    ".git",
+    "node_modules",
+    "coverage",
+    "dist",
+    "lib",
+    "package-lock.json"
+  ],
+  "words": [
+    "cinderblock",
+    "editorconfig",
+    "esbenp",
+    "gitignore",
+    "Interop",
+    "peaceiris",
+    "streetsidesoftware",
+    "Tacklind",
+    "useremail"
+  ],
+  "flagWords": []
 }
