@@ -8,11 +8,13 @@
     "dist",
     "lib",
     "public",
+    "allure-results",
     "package-lock.json"
   ],
   "words": [
     "camelcase",
     "cinderblock",
+    "commandline",
     "editorconfig",
     "esbenp",
     "gitignore",

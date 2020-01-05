@@ -2,7 +2,7 @@ module.exports = {
   clearMocks: true,
   moduleFileExtensions: ['ts', 'js'],
   testEnvironment: 'node',
-  testRunner: 'jest-circus/runner',
+  // testRunner: 'jest-circus/runner', // Not compatible with jest-allure
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },
@@ -10,6 +10,7 @@ module.exports = {
   collectCoverageFrom: ['src/**/*.ts'],
   testRegex: '(/tests/[^/]+)\\.ts$',
   verbose: true,
+  setupFilesAfterEnv: ['jest-allure/dist/setup'],
   reporters: [
     'default',
     'jest-github-reporter',

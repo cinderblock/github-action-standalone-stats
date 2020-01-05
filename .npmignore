@@ -95,3 +95,4 @@ Thumbs.db
 __tests__/runner/*
 
 public/
+allure-results/

@@ -11,6 +11,7 @@ _(GitHub Action Badge)_
 - Test Reports:
   [jest-stare](https://cinderblock.github.io/github-action-standalone-stats/jest-stare)
   [jest-html-reporters](https://cinderblock.github.io/github-action-standalone-stats/jest-html-reporters)
+  [allure](https://cinderblock.github.io/github-action-standalone-stats/allure-report)
 - Coverage Report:
   [lcov](https://cinderblock.github.io/github-action-standalone-stats/coverage/lcov-report)
 
