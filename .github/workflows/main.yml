@@ -79,6 +79,9 @@ jobs:
 
       - run: echo '<svg height="200" width="800"><line x1="0" y1="200" x2="800" y2="0" style="stroke:rgb(255,0,0);stroke-width:2" /></svg>' > public/dashboard.svg
 
+      - name: 'Debug: List files'
+        run: find * \( -path node_modules -o -path .git \) -print -prune -o -type f -print
+
       - uses: ./
         # This step will copy coverage reports (and others) to the specified historical branch
         # and use it to generate some pretty charts
