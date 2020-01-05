@@ -72,10 +72,16 @@ jobs:
       - name: Install Dependencies and Build
         run: npm install
 
+        # Run Tests
+      - name: Run Tests
+        run: npm test -- --color
+
+        # Generate Reports
+        #
       - name: Make directory for result
         run: mkdir -p public
 
-      - name: Create trivial index page placeholder
+      - name: Temporary Placeholder Generator - index.html
         working-directory: public
         run: echo Hello > index.html
 
@@ -83,12 +89,9 @@ jobs:
         working-directory: public
         run: touch .nojekyll
 
-      - name: Create placeholder dashboard chart
+      - name: Temporary Placeholder Generator - Dashboard Chart
         working-directory: public
         run: echo '<svg xmlns="http://www.w3.org/2000/svg" height="200" width="800"><line x1="0" y1="200" x2="800" y2="0" style="stroke:rgb(255,0,0);stroke-width:2" /></svg>' > dashboard.svg
-
-      - name: 'Debug: List files'
-        run: find * \( -path node_modules -o -path .git \) -print -prune -o -type f -print
 
       - uses: ./
         # This step will copy coverage reports (and others) to the specified historical branch
@@ -98,6 +101,10 @@ jobs:
           stats-branch: build-stats
           stats-repo: '' # Current
           pages-dir: public
+
+        # DEBUG
+      - name: 'Debug: List files'
+        run: find * \( -path node_modules -o -path .git \) -print -prune -o -type f -print
 
       # Publish to gh-pages
       - name: Publish to gh-pages
@@ -110,7 +117,7 @@ jobs:
           PUBLISH_DIR: public
         with:
           emptyCommits: false
-          username: "GitHub Action Static Build"
+          username: 'GitHub Action Static Build'
           #useremail: "actions@github.com"
 
   publish:
@@ -119,7 +126,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Disable WIP Publish Script
-        run: "false" # WIP
+        run: 'false' # WIP
 
       - name: Checkout latest code
         uses: actions/checkout@v1
