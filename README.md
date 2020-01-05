@@ -17,6 +17,7 @@ However, instead of relying on a 3rd party service to host these generated stati
 
 It is helpful, for generating reports, to have the raw historical data for each execution.
 We use an extra branch on GitHub (or, optionally, a separate repo) to store this historical data and use it to generate new reports on push.
+Git is the database.
 
 ## Usage
 
