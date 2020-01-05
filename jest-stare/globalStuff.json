@@ -36,6 +36,10 @@
       {}
     ],
     [
+      "/home/runner/work/github-action-standalone-stats/github-action-standalone-stats/node_modules/jest-github-reporter/dist/index.js",
+      {}
+    ],
+    [
       "/home/runner/work/github-action-standalone-stats/github-action-standalone-stats/node_modules/jest-stare/lib/index.js",
       {
         "resultDir": "public/jest-stare/",
