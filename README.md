@@ -10,6 +10,14 @@ Standalone Stats gives you stats like this.
 
 [![This is where the magic is gonna be](https://cinderblock.github.io/github-action-standalone-stats/dashboard.svg)](https://cinderblock.github.io/github-action-standalone-stats)
 
+## How It Works
+
+Inspired by tools like coveralls.io, this tool takes raw coverage report files (`lcov` format) and generates pretty graphs to show coverage over time.
+Instead of relying on a 3rd party service to host these generated static reports, we generate them ourselves and use github-pages to host the various files.
+
+It is helpful, for generating reports, to have the raw historical data for each execution.
+We use an extra branch on GitHub (or, optionally, a separate repo) to store this historical data and use it to generate new reports on push.
+
 ## Usage
 
 In your GitHub Actions, add a config like this:
