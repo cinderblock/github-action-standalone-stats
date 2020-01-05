@@ -3,9 +3,6 @@ name: Main
 on:
   pull_request:
   push:
-    branches:
-      - master
-      - releases/*
 
 jobs:
   check-format:
