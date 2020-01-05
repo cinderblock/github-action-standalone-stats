@@ -12,6 +12,7 @@ module.exports = {
   verbose: true,
   reporters: [
     'default',
+    'jest-github-reporter',
     [
       'jest-stare',
       {
