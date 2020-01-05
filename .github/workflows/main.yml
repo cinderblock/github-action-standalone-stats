@@ -109,6 +109,8 @@ jobs:
           PUBLISH_DIR: public
         with:
           emptyCommits: false
+          username: "GitHub Action Static Build"
+          #useremail: "actions@github.com"
 
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/tags/*'
