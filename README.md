@@ -6,6 +6,9 @@ _(GitHub Action Badge)_
 
 [![Click for Full Build Report Metrics](https://cinderblock.github.io/github-action-standalone-stats/dashboard.svg)](https://cinderblock.github.io/github-action-standalone-stats)
 
+- [Test Report](https://cinderblock.github.io/github-action-standalone-stats/jest-stare)
+- [Coverage Report](https://cinderblock.github.io/github-action-standalone-stats/coverage/lcov-report)
+
 ## How It Works
 
 Inspired by tools like [coveralls.io](https://coveralls.io), this tool takes raw coverage report files (`lcov` format) and generates pretty graphs to show coverage over time.
