@@ -1,11 +1,11 @@
 {
-  "uid" : "1cbb8514e03c41a9",
+  "uid" : "17f346aca850e81d",
   "name" : "wait 500 ms",
   "fullName" : "standalone-stats.wait 500 ms",
   "historyId" : "6643eb8eefedc0b2fca64488edb4c6fa",
   "time" : {
-    "start" : 1578219705808,
-    "stop" : 1578219706310,
+    "start" : 1578220282133,
+    "stop" : 1578220282635,
     "duration" : 502
   },
   "description" : "",
@@ -41,6 +41,6 @@
     "categories" : [ ],
     "tags" : [ ]
   },
-  "source" : "1cbb8514e03c41a9.json",
+  "source" : "17f346aca850e81d.json",
   "parameterValues" : [ ]
 }
