@@ -1,12 +1,8 @@
-## GitHub Badge
-
-Normally, we're restricted to simple badges like this.
-
+Normally, we're restricted to simple badges like this:
 [![cinderblock/github-action-standalone-stats status](https://github.com/cinderblock/github-action-standalone-stats/workflows/Main/badge.svg?branch=master)](https://github.com/cinderblock/github-action-standalone-stats/actions?query=branch%3Amaster)
+*(GitHub Action Badge)*
 
 ## Standalone Stats
-
-Standalone Stats gives you stats like this.
 
 [![Click for Full Build Report Metrics](https://cinderblock.github.io/github-action-standalone-stats/dashboard.svg)](https://cinderblock.github.io/github-action-standalone-stats)
 
