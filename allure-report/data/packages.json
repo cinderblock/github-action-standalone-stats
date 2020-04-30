@@ -4,38 +4,38 @@
     "name" : "standalone-stats",
     "children" : [ {
       "name" : "throws invalid number",
-      "uid" : "68bed448242829b4",
+      "uid" : "e54d2ecc1b31afde",
       "parentUid" : "a3b69a13b41e41346d44ba6ab17c501f",
       "status" : "passed",
       "time" : {
-        "start" : 1588255210608,
-        "stop" : 1588255210612,
-        "duration" : 4
+        "start" : 1588255216817,
+        "stop" : 1588255216822,
+        "duration" : 5
       },
       "flaky" : false,
       "newFailed" : false,
       "parameters" : [ ]
     }, {
       "name" : "wait 500 ms",
-      "uid" : "c318ef7e499f0c3d",
+      "uid" : "2f9ba26ecfccea3f",
       "parentUid" : "a3b69a13b41e41346d44ba6ab17c501f",
       "status" : "passed",
       "time" : {
-        "start" : 1588255210613,
-        "stop" : 1588255211115,
-        "duration" : 502
+        "start" : 1588255216822,
+        "stop" : 1588255217323,
+        "duration" : 501
       },
       "flaky" : false,
       "newFailed" : false,
       "parameters" : [ ]
     }, {
       "name" : "test runs",
-      "uid" : "8d6263755cf5a077",
+      "uid" : "bca83f72ef06c406",
       "parentUid" : "a3b69a13b41e41346d44ba6ab17c501f",
       "status" : "passed",
       "time" : {
-        "start" : 1588255211115,
-        "stop" : 1588255211176,
+        "start" : 1588255217323,
+        "stop" : 1588255217384,
         "duration" : 61
       },
       "flaky" : false,
