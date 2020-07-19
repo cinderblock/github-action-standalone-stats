@@ -26,7 +26,7 @@
     "unmatched": 0,
     "updated": 0
   },
-  "startTime": 1588255214239,
+  "startTime": 1595136582444,
   "success": false,
   "testResults": [
     {
@@ -36,8 +36,8 @@
       "numPendingTests": 0,
       "numTodoTests": 0,
       "perfStats": {
-        "end": 1588255217391,
-        "start": 1588255214288
+        "end": 1595136585513,
+        "start": 1595136582486
       },
       "snapshot": {
         "added": 0,
@@ -54,7 +54,7 @@
           "ancestorTitles": [
             "standalone-stats"
           ],
-          "duration": 5,
+          "duration": 4,
           "failureMessages": [],
           "fullName": "standalone-stats throws invalid number",
           "location": null,
@@ -66,7 +66,7 @@
           "ancestorTitles": [
             "standalone-stats"
           ],
-          "duration": 501,
+          "duration": 503,
           "failureMessages": [],
           "fullName": "standalone-stats wait 500 ms",
           "location": null,
@@ -78,7 +78,7 @@
           "ancestorTitles": [
             "standalone-stats"
           ],
-          "duration": 61,
+          "duration": 71,
           "failureMessages": [],
           "fullName": "standalone-stats test runs",
           "location": null,

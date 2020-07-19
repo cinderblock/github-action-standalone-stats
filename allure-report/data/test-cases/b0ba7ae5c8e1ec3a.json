@@ -1,12 +1,12 @@
 {
-  "uid" : "2f9ba26ecfccea3f",
+  "uid" : "b0ba7ae5c8e1ec3a",
   "name" : "wait 500 ms",
   "fullName" : "standalone-stats.wait 500 ms",
   "historyId" : "6643eb8eefedc0b2fca64488edb4c6fa",
   "time" : {
-    "start" : 1588255216822,
-    "stop" : 1588255217323,
-    "duration" : 501
+    "start" : 1595136584932,
+    "stop" : 1595136585435,
+    "duration" : 503
   },
   "description" : "",
   "descriptionHtml" : "",
@@ -41,6 +41,6 @@
     "categories" : [ ],
     "tags" : [ ]
   },
-  "source" : "2f9ba26ecfccea3f.json",
+  "source" : "b0ba7ae5c8e1ec3a.json",
   "parameterValues" : [ ]
 }
