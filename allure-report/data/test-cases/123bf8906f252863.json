@@ -1,12 +1,12 @@
 {
-  "uid" : "cc22c835479d7c1f",
-  "name" : "test runs",
-  "fullName" : "standalone-stats.test runs",
-  "historyId" : "d5b03bc913d381ef0fe79b15206237c9",
+  "uid" : "123bf8906f252863",
+  "name" : "wait 500 ms",
+  "fullName" : "standalone-stats.wait 500 ms",
+  "historyId" : "6643eb8eefedc0b2fca64488edb4c6fa",
   "time" : {
-    "start" : 1601573363449,
-    "stop" : 1601573363528,
-    "duration" : 79
+    "start" : 1601573363327,
+    "stop" : 1601573363829,
+    "duration" : 502
   },
   "description" : "",
   "descriptionHtml" : "",
@@ -23,7 +23,7 @@
     "value" : "standalone-stats"
   }, {
     "name" : "testMethod",
-    "value" : "test runs"
+    "value" : "wait 500 ms"
   }, {
     "name" : "package",
     "value" : "standalone-stats"
@@ -41,6 +41,6 @@
     "categories" : [ ],
     "tags" : [ ]
   },
-  "source" : "cc22c835479d7c1f.json",
+  "source" : "123bf8906f252863.json",
   "parameterValues" : [ ]
 }

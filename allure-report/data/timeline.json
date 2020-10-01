@@ -2,38 +2,38 @@
   "uid" : "ab17fc5a4eb3bca4b216b548c7f9fcbc",
   "children" : [ {
     "name" : "test runs",
-    "uid" : "cc22c835479d7c1f",
+    "uid" : "1119c40cfa40d076",
     "parentUid" : "ab17fc5a4eb3bca4b216b548c7f9fcbc",
     "status" : "passed",
     "time" : {
-      "start" : 1601573363449,
-      "stop" : 1601573363528,
-      "duration" : 79
+      "start" : 1601573363829,
+      "stop" : 1601573363923,
+      "duration" : 94
     },
     "flaky" : false,
     "newFailed" : false,
     "parameters" : [ ]
   }, {
     "name" : "wait 500 ms",
-    "uid" : "e006e7df52611580",
+    "uid" : "123bf8906f252863",
     "parentUid" : "ab17fc5a4eb3bca4b216b548c7f9fcbc",
     "status" : "passed",
     "time" : {
-      "start" : 1601573362948,
-      "stop" : 1601573363449,
-      "duration" : 501
+      "start" : 1601573363327,
+      "stop" : 1601573363829,
+      "duration" : 502
     },
     "flaky" : false,
     "newFailed" : false,
     "parameters" : [ ]
   }, {
     "name" : "throws invalid number",
-    "uid" : "e0d86418cda21b23",
+    "uid" : "31d732ed7b2b4e0",
     "parentUid" : "ab17fc5a4eb3bca4b216b548c7f9fcbc",
     "status" : "passed",
     "time" : {
-      "start" : 1601573362943,
-      "stop" : 1601573362948,
+      "start" : 1601573363322,
+      "stop" : 1601573363327,
       "duration" : 5
     },
     "flaky" : false,
