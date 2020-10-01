@@ -1,4 +1,4 @@
 "Status","Start Time","Stop Time","Duration in ms","Parent Suite","Suite","Sub Suite","Test Class","Test Method","Name","Description"
-"passed","Sun Jul 19 05:29:44 UTC 2020","Sun Jul 19 05:29:45 UTC 2020","503","","standalone-stats","","standalone-stats","wait 500 ms","wait 500 ms",""
-"passed","Sun Jul 19 05:29:45 UTC 2020","Sun Jul 19 05:29:45 UTC 2020","71","","standalone-stats","","standalone-stats","test runs","test runs",""
-"passed","Sun Jul 19 05:29:44 UTC 2020","Sun Jul 19 05:29:44 UTC 2020","4","","standalone-stats","","standalone-stats","throws invalid number","throws invalid number",""
+"passed","Thu Oct 01 17:29:22 UTC 2020","Thu Oct 01 17:29:22 UTC 2020","5","","standalone-stats","","standalone-stats","throws invalid number","throws invalid number",""
+"passed","Thu Oct 01 17:29:23 UTC 2020","Thu Oct 01 17:29:23 UTC 2020","79","","standalone-stats","","standalone-stats","test runs","test runs",""
+"passed","Thu Oct 01 17:29:22 UTC 2020","Thu Oct 01 17:29:23 UTC 2020","501","","standalone-stats","","standalone-stats","wait 500 ms","wait 500 ms",""

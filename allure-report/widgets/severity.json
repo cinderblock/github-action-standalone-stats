@@ -1,30 +1,30 @@
 [ {
-  "uid" : "dae9c5ce1351e30d",
-  "name" : "test runs",
-  "time" : {
-    "start" : 1595136585435,
-    "stop" : 1595136585506,
-    "duration" : 71
-  },
-  "status" : "passed",
-  "severity" : "normal"
-}, {
-  "uid" : "b0ba7ae5c8e1ec3a",
+  "uid" : "e006e7df52611580",
   "name" : "wait 500 ms",
   "time" : {
-    "start" : 1595136584932,
-    "stop" : 1595136585435,
-    "duration" : 503
+    "start" : 1601573362948,
+    "stop" : 1601573363449,
+    "duration" : 501
   },
   "status" : "passed",
   "severity" : "normal"
 }, {
-  "uid" : "62e7918e31b53e66",
+  "uid" : "cc22c835479d7c1f",
+  "name" : "test runs",
+  "time" : {
+    "start" : 1601573363449,
+    "stop" : 1601573363528,
+    "duration" : 79
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "e0d86418cda21b23",
   "name" : "throws invalid number",
   "time" : {
-    "start" : 1595136584928,
-    "stop" : 1595136584932,
-    "duration" : 4
+    "start" : 1601573362943,
+    "stop" : 1601573362948,
+    "duration" : 5
   },
   "status" : "passed",
   "severity" : "normal"
