@@ -1,12 +1,12 @@
 {
-  "uid" : "31d732ed7b2b4e0",
-  "name" : "throws invalid number",
-  "fullName" : "standalone-stats.throws invalid number",
-  "historyId" : "c613fae803b7e5013a9138e22ae637e1",
+  "uid" : "dc589289856ea7e5",
+  "name" : "wait 500 ms",
+  "fullName" : "standalone-stats.wait 500 ms",
+  "historyId" : "6643eb8eefedc0b2fca64488edb4c6fa",
   "time" : {
-    "start" : 1601573363322,
-    "stop" : 1601573363327,
-    "duration" : 5
+    "start" : 1602469555478,
+    "stop" : 1602469555979,
+    "duration" : 501
   },
   "description" : "",
   "descriptionHtml" : "",
@@ -23,7 +23,7 @@
     "value" : "standalone-stats"
   }, {
     "name" : "testMethod",
-    "value" : "throws invalid number"
+    "value" : "wait 500 ms"
   }, {
     "name" : "package",
     "value" : "standalone-stats"
@@ -41,6 +41,6 @@
     "categories" : [ ],
     "tags" : [ ]
   },
-  "source" : "31d732ed7b2b4e0.json",
+  "source" : "dc589289856ea7e5.json",
   "parameterValues" : [ ]
 }
