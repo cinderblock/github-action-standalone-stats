@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "target": "es6",
-    "module": "commonjs",
+    "target": "es2024",
+    "module": "NodeNext",
     "outDir": "lib",
     "rootDir": "src",
     "strict": true,
