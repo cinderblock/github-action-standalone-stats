@@ -14,7 +14,7 @@ inputs:
     default: '' # Current
   pages-dir:
     required: false
-    description: Which folder in the pages-branch to store the built files in
+    description: Which folder to store the generated reports in
     default: action-stats
 runs:
   using: 'node12'

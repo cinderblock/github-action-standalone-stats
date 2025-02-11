@@ -44,10 +44,11 @@ jobs:
       - name: Generate Standalone Stats
         uses: cinderblock/github-action-standalone-stats
         # This step will copy coverage reports (and others) to the specified historical branch
-        # and use it to generate some pretty charts
+        # and use them all to generate some updated pretty charts
         with:
           stats-branch: build-stats
           stats-repo: '' # Current
+          # Output directory for the generated reports
           pages-dir: public/action-stats
 
       # Publish to gh-pages
