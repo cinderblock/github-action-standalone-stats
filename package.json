@@ -4,6 +4,7 @@
   "author": "Cameron Tacklind <cameron@tacklind.com>",
   "license": "MIT",
   "private": true,
+  "type": "module",
   "description": "GitHub Action that publishes coverage, tests results, and other stats to gh-pages for self-contained pretty charts and badges",
   "keywords": [
     "actions",

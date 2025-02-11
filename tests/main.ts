@@ -24,7 +24,6 @@ describe('standalone-stats', () => {
       const options: ExecSyncOptions = {
         env: process.env,
       };
-      // eslint-disable-next-line no-console
       console.log(execSync(`node ${ip}`, options).toString());
     });
   }
