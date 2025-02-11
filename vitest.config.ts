@@ -1,9 +1,12 @@
+import AllureReporter from 'allure-vitest/reporter';
 import { defineConfig } from 'vitest/config';
 import type { ResolvedConfig } from 'vitest/node';
 
 const reporters: ResolvedConfig['reporters'][number][] = [];
 
 reporters.push(['default', {}]);
+reporters.push(['verbose', {}]);
+
 reporters.push([
   'html',
   {
@@ -27,12 +30,20 @@ reporters.push([
   },
 ]);
 
+reporters.push([
+  'allure-vitest/reporter',
+  {
+    resultsDir: 'public/allure-report',
+  },
+]);
+
 if (process.env.GITHUB_ACTIONS) {
   reporters.push(['github-actions', {}]);
 }
 
 export default defineConfig({
   test: {
+    setupFiles: ['allure-vitest/setup'],
     reporters,
     globals: true,
     coverage: {
