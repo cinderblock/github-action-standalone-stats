@@ -1,18 +1,19 @@
 Normally, we're restricted to simple badges like this:
+
 [![cinderblock/github-action-standalone-stats status](https://github.com/cinderblock/github-action-standalone-stats/workflows/Main/badge.svg?branch=master)](https://github.com/cinderblock/github-action-standalone-stats/actions?query=branch%3Amaster)
 _(GitHub Action Badge)_
+
+But with Standalone Stats...
+
+[![Click for Full Build Report Metrics](https://cinderblock.github.io/github-action-standalone-stats/dashboard.svg)](https://cinderblock.github.io/github-action-standalone-stats)
 
 ## Standalone Stats
 
 ![Github Action Standalone Stats](banner.svg)
 
-Standalone Stats is a tool that allows you to generate pretty build reports for your GitHub Actions:
+Standalone Stats is a tool that helps you generate pretty build reports for your GitHub Actions.
 
-[![Click for Full Build Report Metrics](https://cinderblock.github.io/github-action-standalone-stats/dashboard.svg)](https://cinderblock.github.io/github-action-standalone-stats)
-
-### Other Reporters
-
-It also supports other reporters, like:
+It supports a bunch of reporters, like:
 
 - Test Reports:
   - [jest-stare](https://cinderblock.github.io/github-action-standalone-stats/jest-stare)
