@@ -4,6 +4,8 @@ _(GitHub Action Badge)_
 
 ## Standalone Stats
 
+![Github Action Standalone Stats](banner.svg)
+
 [![Click for Full Build Report Metrics](https://cinderblock.github.io/github-action-standalone-stats/dashboard.svg)](https://cinderblock.github.io/github-action-standalone-stats)
 
 ### Other Reporters
