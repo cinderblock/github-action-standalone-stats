@@ -62,13 +62,10 @@ jobs:
       - name: Publish to gh-pages
         # Run even if other steps failed, as long as generateStats succeeded
         if: success() || steps.generateStats.result == 'success'
-        uses: peaceiris/actions-gh-pages@v2
-        env:
-          # ACTIONS_DEPLOY_KEY: ${{ secrets.ACTIONS_DEPLOY_KEY }}
-          # PERSONAL_TOKEN: ${{ secrets.PERSONAL_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PUBLISH_BRANCH: gh-pages
-          PUBLISH_DIR: public
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: public
 ```
 
 Add this to your README
