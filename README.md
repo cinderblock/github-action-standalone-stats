@@ -28,6 +28,8 @@ Git is the database.
 
 ## Usage
 
+# ⚠️⚠️ WORK IN PROGRESS ⚠️⚠️ Not ready for use yet
+
 In your GitHub Actions, add a config like this:
 
 ```yml
