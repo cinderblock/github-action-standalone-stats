@@ -6,9 +6,13 @@ _(GitHub Action Badge)_
 
 ![Github Action Standalone Stats](banner.svg)
 
+Standalone Stats is a tool that allows you to generate pretty build reports for your GitHub Actions:
+
 [![Click for Full Build Report Metrics](https://cinderblock.github.io/github-action-standalone-stats/dashboard.svg)](https://cinderblock.github.io/github-action-standalone-stats)
 
 ### Other Reporters
+
+It also supports other reporters, like:
 
 - Test Reports:
   - [jest-stare](https://cinderblock.github.io/github-action-standalone-stats/jest-stare)
@@ -20,15 +24,22 @@ _(GitHub Action Badge)_
 ## How It Works
 
 Inspired by tools like [coveralls.io](https://coveralls.io), this tool takes raw coverage report files (`lcov` format) and generates pretty graphs to show coverage over time.
-However, instead of relying on a 3rd party service to host these generated static reports, we generate them ourselves and use github-pages to host the various generated static html files.
+However, instead of relying on a 3rd party service to generated and host these static reports, we generate them ourselves and use github-pages to host the various generated static html files.
 
-It is helpful, for generating reports, to have the raw historical data for each execution.
-We use an extra branch on GitHub (or, optionally, a separate repo) to store this historical data and use it to generate new reports on push.
-Git is the database.
+It is critical, for generating reports, to have the raw historical data for each execution.
+We use an extra branch on the repo (or, optionally, a separate repo) to store this historical data and use it to generate new reports on push.
+
+We also use another extra branch to store the generated reports, which GitHub Pages will host.
+
+Git has the code.  
+Git has the database.  
+Git has the publication.
 
 ## Usage
 
-# ⚠️⚠️ WORK IN PROGRESS ⚠️⚠️ Not ready for use yet
+# ⚠️⚠️ WORK IN PROGRESS ⚠️⚠️
+
+## Not yet ready for use
 
 In your GitHub Actions, add a config like this:
 
