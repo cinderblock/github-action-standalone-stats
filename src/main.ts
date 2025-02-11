@@ -1,20 +1,20 @@
 // Other packages https://github.com/actions/toolkit/blob/master/README.md#packages
-import core from '@actions/core';
+import { debug, getInput, setOutput, setFailed } from '@actions/core';
 
 import { wait } from './wait.js';
 
 async function run(): Promise<void> {
   try {
-    const ms: string = core.getInput('milliseconds');
-    core.debug(`Waiting ${ms} milliseconds ...`);
+    const ms: string = getInput('milliseconds');
+    debug(`Waiting ${ms} milliseconds ...`);
 
-    core.debug(new Date().toTimeString());
+    debug(new Date().toTimeString());
     await wait(parseInt(ms, 10));
-    core.debug(new Date().toTimeString());
+    debug(new Date().toTimeString());
 
-    core.setOutput('time', new Date().toTimeString());
+    setOutput('time', new Date().toTimeString());
   } catch (error) {
-    core.setFailed(error instanceof Error ? error.message : String(error));
+    setFailed(error instanceof Error ? error.message : String(error));
   }
 }
 
