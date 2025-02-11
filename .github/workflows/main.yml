@@ -116,7 +116,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           allow_empty_commit: false
           user_name: 'GitHub Action Static Build'
-          # user_email: "actions@github.com"
+          user_email: 'actions@github.com'
 
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/tags/*'
