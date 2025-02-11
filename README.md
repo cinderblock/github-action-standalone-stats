@@ -38,12 +38,17 @@ jobs:
       - name: Checkout your code
         uses: actions/checkout@v1
 
-      - name: Setup your code and run tests that generate reports
-        run: |
-          npm install
-          npm test
+      - name: Setup your code
+        run: npm install
+
+      - name: Run your tests that generate reports
+        id: tests
+        run: npm test
 
       - name: Generate Standalone Stats
+        # Run even if tests failed
+        if: success() || steps.tests.result == 'failure'
+        id: generateStats
         uses: cinderblock/github-action-standalone-stats
         # This step will copy coverage reports (and others) to the specified historical branch
         # and use them all to generate some updated pretty charts
@@ -55,6 +60,8 @@ jobs:
 
       # Publish to gh-pages
       - name: Publish to gh-pages
+        # Run even if other steps failed, as long as generateStats succeeded
+        if: success() || steps.generateStats.result == 'success'
         uses: peaceiris/actions-gh-pages@v2
         env:
           # ACTIONS_DEPLOY_KEY: ${{ secrets.ACTIONS_DEPLOY_KEY }}
