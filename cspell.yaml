@@ -1,0 +1,25 @@
+version: '0.2'
+language: en
+words:
+  - Cameron
+  - cinderblock
+  - Tacklind
+  - camelcase
+  - commandline
+  - editorconfig
+  - esbenp
+  - gitignore
+  - Interop
+  - peaceiris
+  - streetsidesoftware
+  - useremail
+ignorePaths:
+  - test/samples-annotated
+  - .git
+  - node_modules
+  - coverage
+  - dist
+  - lib
+  - public
+  - allure-results
+  - package-lock.json
