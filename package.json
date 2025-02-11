@@ -17,7 +17,7 @@
     "format-check": "prettier --check **/*.ts",
     "spellcheck": "cspell .",
     "lint": "eslint **/*.ts",
-    "pack": "ncc build src/main.ts",
+    "pack": "ncc build src/main.ts --target=es2020",
     "build": "npm run pack",
     "prepare": "npm run build",
     "clean": "rm -rf lib public allure-results",
