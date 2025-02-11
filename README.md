@@ -49,7 +49,7 @@ jobs:
         # Run even if tests failed
         if: success() || steps.tests.result == 'failure'
         id: generateStats
-        uses: cinderblock/github-action-standalone-stats
+        uses: cinderblock/github-action-standalone-stats@v1
         # This step will copy coverage reports (and others) to the specified historical branch
         # and use them all to generate some updated pretty charts
         with:
