@@ -19,7 +19,7 @@
       .theme-text { stroke: black; }
     }
   </style>
-  <text x="20" y="50" alignment-baseline="middle" fill="none" class="theme-text" stroke-width="2" font-size="48" font-family="Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif">Github Actions</text>
+  <text x="20" y="50" alignment-baseline="middle" fill="none" class="theme-text" stroke-width="2" font-size="48" font-family="Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif">Github Action</text>
   <text x="200" y="180" alignment-baseline="middle" fill="none" class="theme-text" stroke-width="2" font-size="48" font-family="Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif">Standalone Stats</text>
 </svg>
 <!-- cSpell:ignore Haettenschweiler linecap -->
