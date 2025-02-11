@@ -11,6 +11,14 @@
     </linearGradient>
   </defs>
   <path d="M 5 195 Q 200 20, 400 100 T 795 5" stroke="url(#rainbow)" stroke-width="10" fill="none" stroke-linecap="round"/>
-  <text x="20" y="50" alignment-baseline="middle" fill="none" stroke="black" stroke-width="2" font-size="48" font-family="Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif">Github Actions</text>
-  <text x="200" y="180" alignment-baseline="middle" fill="none" stroke="black" stroke-width="2" font-size="48" font-family="Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif">Standalone Stats</text>
+  <style>
+    @media (prefers-color-scheme: dark) {
+      .theme-text { stroke: white; }
+    }
+    @media (prefers-color-scheme: light) {
+      .theme-text { stroke: black; }
+    }
+  </style>
+  <text x="20" y="50" alignment-baseline="middle" fill="none" class="theme-text" stroke-width="2" font-size="48" font-family="Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif">Github Actions</text>
+  <text x="200" y="180" alignment-baseline="middle" fill="none" class="theme-text" stroke-width="2" font-size="48" font-family="Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif">Standalone Stats</text>
 </svg>
