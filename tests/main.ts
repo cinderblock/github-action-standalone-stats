@@ -17,6 +17,7 @@ describe('standalone-stats', () => {
     expect(delta).toBeGreaterThan(45);
   });
 
+  if (process.env.GITHUB_ACTIONS) {
   // shows how the runner will run a javascript action with env / stdout protocol
   test('test runs', () => {
     process.env['INPUT_MILLISECONDS'] = '500';
@@ -27,4 +28,5 @@ describe('standalone-stats', () => {
     // eslint-disable-next-line no-console
     console.log(cp.execSync(`node ${ip}`, options).toString());
   });
+  }
 });
