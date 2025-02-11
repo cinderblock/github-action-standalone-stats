@@ -1,4 +1,0 @@
-"Status","Start Time","Stop Time","Duration in ms","Parent Suite","Suite","Sub Suite","Test Class","Test Method","Name","Description"
-"passed","Mon Oct 12 02:25:55 UTC 2020","Mon Oct 12 02:25:55 UTC 2020","5","","standalone-stats","","standalone-stats","throws invalid number","throws invalid number",""
-"passed","Mon Oct 12 02:25:55 UTC 2020","Mon Oct 12 02:25:55 UTC 2020","501","","standalone-stats","","standalone-stats","wait 500 ms","wait 500 ms",""
-"passed","Mon Oct 12 02:25:55 UTC 2020","Mon Oct 12 02:25:56 UTC 2020","83","","standalone-stats","","standalone-stats","test runs","test runs",""

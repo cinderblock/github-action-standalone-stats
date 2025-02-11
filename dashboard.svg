@@ -1,1 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" height="200" width="800"><line x1="0" y1="200" x2="800" y2="0" style="stroke:rgb(255,0,0);stroke-width:2" /></svg>
+<svg xmlns="http://www.w3.org/2000/svg" height="200" width="800">
+  <defs>
+    <linearGradient id="rainbow" x2="100%">
+      <stop offset="0%" style="stop-color:rgb(255,0,0)"/>
+      <stop offset="16.6%" style="stop-color:rgb(255,165,0)"/>
+      <stop offset="33.3%" style="stop-color:rgb(255,255,0)"/>
+      <stop offset="50%" style="stop-color:rgb(0,255,0)"/>
+      <stop offset="66.6%" style="stop-color:rgb(0,0,255)"/>
+      <stop offset="83.3%" style="stop-color:rgb(75,0,130)"/>
+      <stop offset="100%" style="stop-color:rgb(238,130,238)"/>
+    </linearGradient>
+  </defs>
+  <path d="M 5 195 Q 200 20, 400 100 T 795 5" stroke="url(#rainbow)" stroke-width="10" fill="none" stroke-linecap="round"/>
+  <style>
+    @media (prefers-color-scheme: dark) {
+      .theme-text { stroke: white; }
+    }
+    @media (prefers-color-scheme: light) {
+      .theme-text { stroke: black; }
+    }
+  </style>
+  <text x="20" y="50" alignment-baseline="middle" fill="none" class="theme-text" stroke-width="2" font-size="48" font-family="Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif">Github Actions</text>
+  <text x="200" y="180" alignment-baseline="middle" fill="none" class="theme-text" stroke-width="2" font-size="48" font-family="Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif">Standalone Stats</text>
+</svg>
+<!-- cSpell:ignore Haettenschweiler linecap -->
