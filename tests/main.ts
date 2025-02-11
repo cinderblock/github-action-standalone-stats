@@ -1,4 +1,4 @@
-import { wait } from '../src/wait';
+import { wait } from '../src/wait.js';
 import { execSync, ExecSyncOptions } from 'node:child_process';
 import { join } from 'node:path';
 
