@@ -1,21 +1,110 @@
 # https://help.github.com/en/articles/metadata-syntax-for-github-actions
 
 name: Standalone Stats
-description: Publish coverage, tests results, and other stats to gh-pages for self-contained pretty charts and badges
+description: >-
+  Publish Allure test reports to a parallel branch of your repo (or a sibling
+  repo) for self-contained pretty charts, trend graphs, and README badges -
+  with no third-party service required.
 author: Cameron Tacklind <cameron@tacklind.com>
+branding:
+  icon: bar-chart-2
+  color: blue
+
 inputs:
-  stats-branch:
+  # ---- Data branch (raw allure-results, accumulated across runs) ----
+  data-branch:
     required: false
-    description: Which branch folder to store the historical build stats in
-    default: build-stats
-  stats-repo:
+    description: Branch that stores the cumulative allure-results directory + history.
+    default: allure-data
+  data-repo:
     required: false
-    description: Which repository to store the historical build stats in
-    default: '' # Current
-  pages-dir:
+    description: >-
+      Repository (`owner/name`) to store cumulative allure-results in.
+      Default is the current repository. If set to a sibling repo, a PAT
+      with `repo` scope must be supplied via `token`.
+    default: ''
+  data-path:
     required: false
-    description: Which folder to store the generated reports in
-    default: action-stats
+    description: Subdirectory inside data-branch where the cumulative results live.
+    default: ''
+
+  # ---- Pages branch (rendered HTML report served by GitHub Pages) ----
+  pages-branch:
+    required: false
+    description: Branch that stores the rendered allure-report (typically served by GitHub Pages).
+    default: gh-pages
+  pages-repo:
+    required: false
+    description: >-
+      Repository (`owner/name`) to store the rendered report in.
+      Default is the current repository. If set to a sibling repo, a PAT
+      with `repo` scope must be supplied via `token`.
+    default: ''
+  pages-path:
+    required: false
+    description: Subdirectory inside pages-branch where the rendered report is placed.
+    default: ''
+
+  # ---- Source of fresh results (from the consumer's test run) ----
+  results-dir:
+    required: false
+    description: Directory containing this run's freshly generated allure-results JSON.
+    default: allure-results
+
+  # ---- Auth ----
+  token:
+    required: false
+    description: >-
+      Token used to push to data-branch and pages-branch. Defaults to the
+      workflow's GITHUB_TOKEN (sufficient for same-repo mode). For
+      sibling-repo mode, supply a PAT with `repo` scope.
+    default: ${{ github.token }}
+
+  # ---- Commit author ----
+  commit-name:
+    required: false
+    description: Git user.name used for stats commits.
+    default: github-actions[bot]
+  commit-email:
+    required: false
+    description: Git user.email used for stats commits.
+    default: 41898282+github-actions[bot]@users.noreply.github.com
+  commit-message:
+    required: false
+    description: Commit message used on both data-branch and pages-branch.
+    default: 'standalone-stats: publish run ${{ github.run_id }}/${{ github.run_attempt }}'
+
+  # ---- Allure CLI ----
+  allure-version:
+    required: false
+    description: Pinned version of the allure-commandline npm package used to generate the report.
+    default: '2.30.0'
+
+  # ---- Sibling-repo auto-create (only relevant when *-repo is set) ----
+  auto-create-sibling-repos:
+    required: false
+    description: >-
+      If true and a configured sibling repo doesn't exist, create it via the
+      GitHub REST API (requires `token` with `repo` scope, plus `admin:org`
+      if creating in an organization).
+    default: 'true'
+  sibling-repo-visibility:
+    required: false
+    description: >-
+      Visibility for auto-created sibling repos. One of `public` or
+      `private`. Note: GitHub Pages on a private repo requires a paid plan.
+    default: 'public'
+
+outputs:
+  pages-url:
+    description: HTTPS URL where the rendered allure report is served.
+  badge-markdown:
+    description: Pre-built Markdown snippet linking the badge SVG to the rendered report.
+  data-branch-ref:
+    description: Full ref (`refs/heads/<branch>`) of the data branch that was updated.
+  pages-branch-ref:
+    description: Full ref (`refs/heads/<branch>`) of the pages branch that was updated.
+
 runs:
   using: 'node20'
   main: 'dist/index.js'

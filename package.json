@@ -1,15 +1,16 @@
 {
   "name": "github-action-standalone-stats",
   "version": "1.0.0",
-  "description": "GitHub Action that will publish coverage, test results, and other stats to gh-pages for self-contained pretty charts and badges. PLACEHOLDER — the publishing implementation is TODO; the action currently just logs its inputs.",
+  "description": "GitHub Action that publishes Allure test reports to a parallel branch of your repo for self-contained pretty charts, trend graphs, and a README badge — no third-party service required.",
   "private": true,
   "type": "module",
   "author": "Cameron Tacklind <cameron@tacklind.com>",
   "license": "MIT",
   "keywords": [
     "github-actions",
+    "allure",
+    "test-report",
     "stats",
-    "coverage",
     "gh-pages"
   ],
   "engines": {
@@ -18,7 +19,7 @@
   "scripts": {
     "build": "bun build src/main.ts --target=node --format=cjs --outfile=dist/index.js",
     "lint": "tsc --noEmit",
-    "test": "bun test src",
+    "test": "bun test src --timeout 30000",
     "format": "prettier --write ."
   },
   "repository": {

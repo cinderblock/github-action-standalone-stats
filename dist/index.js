@@ -12466,7 +12466,7 @@ var require_fetch = __commonJS((exports2, module2) => {
       this.emit("terminated", error);
     }
   }
-  function fetch(input, init = {}) {
+  function fetch2(input, init = {}) {
     webidl.argumentLengthCheck(arguments, 1, { header: "globalThis.fetch" });
     const p = createDeferredPromise();
     let requestObject;
@@ -13323,7 +13323,7 @@ var require_fetch = __commonJS((exports2, module2) => {
     }
   }
   module2.exports = {
-    fetch,
+    fetch: fetch2,
     Fetch,
     fetching,
     finalizeAndReportTiming
@@ -18784,18 +18784,482 @@ var require_core = __commonJS((exports2) => {
 });
 
 // src/main.ts
+var core6 = __toESM(require_core());
+var import_promises4 = require("node:fs/promises");
+var import_node_os = require("node:os");
+var import_node_path2 = require("node:path");
+
+// src/inputs.ts
+var core2 = __toESM(require_core());
+
+// src/utils/github.ts
 var core = __toESM(require_core());
-async function run() {
+var API = "https://api.github.com";
+function parseRepo(slug) {
+  const m = slug.match(/^([^/\s]+)\/([^/\s]+)$/);
+  if (!m)
+    throw new Error(`Invalid repo slug: ${JSON.stringify(slug)} (expected "owner/name")`);
+  return { owner: m[1], name: m[2] };
+}
+async function api(method, path, body, { token, debug: debug2 = core.debug }) {
+  const url = `${API}${path}`;
+  debug2(`${method} ${url}`);
+  const res = await fetch(url, {
+    method,
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${token}`,
+      "X-GitHub-Api-Version": "2022-11-28",
+      "User-Agent": "github-action-standalone-stats",
+      ...body === undefined ? {} : { "Content-Type": "application/json" }
+    },
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  const text = await res.text();
+  const parsed = text ? JSON.parse(text) : undefined;
+  return { status: res.status, body: parsed };
+}
+async function repoExists(ref, opts) {
+  const { status } = await api("GET", `/repos/${ref.owner}/${ref.name}`, undefined, opts);
+  if (status === 200)
+    return true;
+  if (status === 404)
+    return false;
+  throw new Error(`Unexpected status ${status} checking ${ref.owner}/${ref.name}`);
+}
+async function isOrg(owner, opts) {
+  const { status, body } = await api("GET", `/users/${owner}`, undefined, opts);
+  if (status !== 200)
+    throw new Error(`Failed to look up ${owner}: status ${status}`);
+  return body.type === "Organization";
+}
+async function createRepo(ref, opts) {
+  if (await repoExists(ref, opts))
+    return;
+  const org = await isOrg(ref.owner, opts);
+  const path = org ? `/orgs/${ref.owner}/repos` : "/user/repos";
+  const body = {
+    name: ref.name,
+    description: opts.description ?? "Auto-created by github-action-standalone-stats",
+    private: opts.visibility === "private",
+    auto_init: false,
+    has_issues: false,
+    has_projects: false,
+    has_wiki: false
+  };
+  const { status, body: result } = await api("POST", path, body, opts);
+  if (status >= 200 && status < 300) {
+    (opts.debug ?? core.debug)(`Created repo ${ref.owner}/${ref.name}`);
+    return;
+  }
+  throw new Error(`Failed to create ${ref.owner}/${ref.name}: status ${status} ${result?.message ?? ""}`.trim());
+}
+async function ensurePages(ref, branch, path, opts) {
+  const body = {
+    source: { branch, path: path || "/" }
+  };
+  const { status } = await api("POST", `/repos/${ref.owner}/${ref.name}/pages`, body, opts);
+  if (status === 201 || status === 204) {
+    (opts.debug ?? core.debug)(`Enabled Pages on ${ref.owner}/${ref.name}`);
+    return;
+  }
+  if (status === 409) {
+    (opts.debug ?? core.debug)(`Pages already configured on ${ref.owner}/${ref.name}`);
+    return;
+  }
+  core.warning(`Could not enable Pages on ${ref.owner}/${ref.name} (status ${status}). ` + `If you've configured Pages manually, this is expected. Otherwise enable ` + `Pages in repo Settings → Pages, source: branch ${branch}, path ${path || "/"}.`);
+}
+function pagesUrl(ref, path) {
+  const trimmed = path.replace(/^\/+|\/+$/g, "");
+  const suffix = trimmed ? `${trimmed}/` : "";
+  return `https://${ref.owner}.github.io/${ref.name}/${suffix}`;
+}
+
+// src/inputs.ts
+function buildUrl(slug, token) {
+  return `https://x-access-token:${token}@github.com/${slug}.git`;
+}
+function parseBool(raw, name) {
+  const v = raw.trim().toLowerCase();
+  if (v === "" || v === "true" || v === "1" || v === "yes")
+    return true;
+  if (v === "false" || v === "0" || v === "no")
+    return false;
+  throw new Error(`Invalid boolean for ${name}: ${JSON.stringify(raw)}`);
+}
+function parseVisibility(raw) {
+  const v = raw.trim().toLowerCase();
+  if (v === "public")
+    return "public";
+  if (v === "private")
+    return "private";
+  throw new Error(`Invalid sibling-repo-visibility: ${JSON.stringify(raw)} (expected public|private)`);
+}
+function readInputs(getInput2 = (n) => core2.getInput(n), env = process.env) {
+  const currentRepo = env.GITHUB_REPOSITORY;
+  if (!currentRepo) {
+    throw new Error("GITHUB_REPOSITORY is not set. This action only runs inside GitHub Actions.");
+  }
+  const token = getInput2("token") || env.GITHUB_TOKEN || "";
+  if (!token) {
+    throw new Error("No token provided. Set `token` input or ensure GITHUB_TOKEN is available.");
+  }
+  const dataRepoSlug = getInput2("data-repo") || currentRepo;
+  const pagesRepoSlug = getInput2("pages-repo") || currentRepo;
+  parseRepo(dataRepoSlug);
+  parseRepo(pagesRepoSlug);
+  const data = {
+    repoSlug: dataRepoSlug,
+    branch: getInput2("data-branch") || "allure-data",
+    path: getInput2("data-path").replace(/^\/+|\/+$/g, ""),
+    isSibling: dataRepoSlug !== currentRepo,
+    url: buildUrl(dataRepoSlug, token)
+  };
+  const pages = {
+    repoSlug: pagesRepoSlug,
+    branch: getInput2("pages-branch") || "gh-pages",
+    path: getInput2("pages-path").replace(/^\/+|\/+$/g, ""),
+    isSibling: pagesRepoSlug !== currentRepo,
+    url: buildUrl(pagesRepoSlug, token)
+  };
+  return {
+    data,
+    pages,
+    resultsDir: getInput2("results-dir") || "allure-results",
+    token,
+    commitName: getInput2("commit-name") || "github-actions[bot]",
+    commitEmail: getInput2("commit-email") || "41898282+github-actions[bot]@users.noreply.github.com",
+    commitMessage: getInput2("commit-message") || "standalone-stats: publish run",
+    allureVersion: getInput2("allure-version") || "2.30.0",
+    autoCreateSiblings: parseBool(getInput2("auto-create-sibling-repos") || "true", "auto-create-sibling-repos"),
+    siblingVisibility: parseVisibility(getInput2("sibling-repo-visibility") || "public")
+  };
+}
+
+// src/utils/clone.ts
+var core3 = __toESM(require_core());
+var import_promises = require("node:fs/promises");
+
+// src/utils/spawn.ts
+var import_node_child_process = require("node:child_process");
+var import_node_util = require("node:util");
+var defaultShell = "/bin/bash";
+function spawn(command, first, ...args) {
+  const defOpts = { stdio: "inherit" };
+  const allArgs = typeof first === "string" ? [first, ...args] : args;
+  const opts = first === true ? { ...defOpts, shell: defaultShell } : typeof first === "object" && first !== null ? { ...defOpts, ...first } : defOpts;
+  const proc = import_node_child_process.spawn(command, allArgs, opts);
+  const ret = new Promise((resolve, reject) => {
+    proc.on("exit", (exitCode) => {
+      if (exitCode)
+        reject(new Error(`Exit code: ${exitCode}`));
+      else
+        resolve();
+    });
+    proc.on("error", reject);
+  });
+  ret.child = proc;
+  return ret;
+}
+var execP = import_node_util.promisify(import_node_child_process.exec);
+function exec(command, shell = true) {
+  if (shell === null)
+    return execP(command);
+  if (shell === true)
+    shell = defaultShell;
+  return execP(command, { shell });
+}
+
+// src/utils/clone.ts
+async function cloneOrOrphan({
+  repoUrl,
+  dir,
+  branch,
+  debug: debug3 = core3.debug
+}) {
+  debug3(`Cloning ${repoUrl} branch=${branch} into ${dir}`);
   try {
-    const statsBranch = core.getInput("stats-branch");
-    const statsRepo = core.getInput("stats-repo");
-    const pagesDir = core.getInput("pages-dir");
-    core.info(`stats-branch: ${statsBranch}`);
-    core.info(`stats-repo: ${statsRepo || "(current repository)"}`);
-    core.info(`pages-dir: ${pagesDir}`);
-    core.warning("github-action-standalone-stats has not yet been implemented. " + "This action is a no-op placeholder; see the README.");
-  } catch (err) {
-    core.setFailed(err instanceof Error ? err.message : String(err));
+    await spawn("git", "clone", "--single-branch", "--branch", branch, "--depth", "1", "--", repoUrl, dir);
+    debug3("Branch cloned");
+    return;
+  } catch {
+    debug3(`Branch ${branch} missing on remote — creating an orphan.`);
+  }
+  await import_promises.mkdir(dir, { recursive: true });
+  await spawn("git", { cwd: dir }, "init", "--initial-branch=" + branch);
+  await spawn("git", { cwd: dir }, "remote", "add", "origin", repoUrl);
+  debug3("Orphan branch initialized");
+}
+
+// src/utils/commitAndPush.ts
+var core4 = __toESM(require_core());
+async function commitAndPush({
+  branch,
+  dir,
+  message,
+  name,
+  email,
+  commitUnchanged = false,
+  debug: debug4 = core4.debug
+}) {
+  debug4("Adding all files");
+  await spawn("git", { cwd: dir }, "add", ".");
+  if (!commitUnchanged && !await hasStagedChanges(dir)) {
+    debug4("No staged changes — skipping commit/push.");
+    return false;
+  }
+  debug4("Committing");
+  const commitArgs = [
+    "-c",
+    `user.name=${name}`,
+    "-c",
+    `user.email=${email}`,
+    "commit",
+    "--message",
+    message
+  ];
+  if (commitUnchanged)
+    commitArgs.push("--allow-empty");
+  await spawn("git", { cwd: dir }, ...commitArgs);
+  debug4("Pushing");
+  await spawn("git", { cwd: dir }, "push", "origin", `HEAD:refs/heads/${branch}`);
+  return true;
+}
+async function hasStagedChanges(dir) {
+  try {
+    await exec(`git -C ${JSON.stringify(dir)} diff --cached --quiet`, null);
+    return false;
+  } catch {
+    return true;
   }
 }
-run();
+
+// src/utils/copyDir.ts
+var import_promises2 = require("node:fs/promises");
+var import_node_fs = require("node:fs");
+async function copyDir(src, dst) {
+  if (!import_node_fs.existsSync(src))
+    return;
+  await import_promises2.mkdir(dst, { recursive: true });
+  await import_promises2.cp(src, dst, { recursive: true, force: true });
+}
+
+// src/utils/allure.ts
+var core5 = __toESM(require_core());
+var import_promises3 = require("node:fs/promises");
+var import_node_fs2 = require("node:fs");
+var import_node_path = require("node:path");
+async function generate({
+  resultsDir,
+  reportDir,
+  allureVersion,
+  debug: debug5 = core5.debug
+}) {
+  debug5(`Generating allure report: ${resultsDir} → ${reportDir} (v${allureVersion})`);
+  await spawn("npx", "-y", `allure-commandline@${allureVersion}`, "generate", resultsDir, "--clean", "-o", reportDir);
+}
+async function preserveHistory(reportDir, resultsDir) {
+  const src = import_node_path.join(reportDir, "history");
+  const dst = import_node_path.join(resultsDir, "history");
+  if (!import_node_fs2.existsSync(src))
+    return;
+  await import_promises3.rm(dst, { recursive: true, force: true });
+  await copyDir(src, dst);
+}
+async function readSummary(reportDir) {
+  const path = import_node_path.join(reportDir, "widgets", "summary.json");
+  const empty = {
+    total: 0,
+    passed: 0,
+    failed: 0,
+    broken: 0,
+    skipped: 0,
+    unknown: 0
+  };
+  if (!import_node_fs2.existsSync(path))
+    return empty;
+  try {
+    const raw = await import_promises3.readFile(path, "utf8");
+    const parsed = JSON.parse(raw);
+    return { ...empty, ...parsed.statistic ?? {} };
+  } catch (err) {
+    core5.warning(`Failed to parse allure summary at ${path}: ${err.message}`);
+    return empty;
+  }
+}
+function renderBadgeSvg(summary) {
+  const status = summary.failed > 0 || summary.broken > 0 ? `${summary.failed + summary.broken} failing` : summary.total > 0 ? `${summary.passed} passing` : "no tests";
+  const color = summary.failed > 0 || summary.broken > 0 ? "#e05d44" : summary.total > 0 ? "#4c1" : "#9f9f9f";
+  const labelText = "allure";
+  const labelW = labelText.length * 6 + 10;
+  const statusW = status.length * 6 + 10;
+  const totalW = labelW + statusW;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="20" role="img" aria-label="${labelText}: ${status}">
+  <linearGradient id="s" x2="0" y2="100%">
+    <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
+    <stop offset="1" stop-opacity=".1"/>
+  </linearGradient>
+  <clipPath id="r"><rect width="${totalW}" height="20" rx="3" fill="#fff"/></clipPath>
+  <g clip-path="url(#r)">
+    <rect width="${labelW}" height="20" fill="#555"/>
+    <rect x="${labelW}" width="${statusW}" height="20" fill="${color}"/>
+    <rect width="${totalW}" height="20" fill="url(#s)"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110">
+    <text x="${labelW / 2 * 10}" y="150" transform="scale(.1)" fill="#000" fill-opacity=".3">${labelText}</text>
+    <text x="${labelW / 2 * 10}" y="140" transform="scale(.1)">${labelText}</text>
+    <text x="${(labelW + statusW / 2) * 10}" y="150" transform="scale(.1)" fill="#000" fill-opacity=".3">${status}</text>
+    <text x="${(labelW + statusW / 2) * 10}" y="140" transform="scale(.1)">${status}</text>
+  </g>
+</svg>`;
+}
+async function writeBadge(reportDir, outDir) {
+  const summary = await readSummary(reportDir);
+  const svg = renderBadgeSvg(summary);
+  await import_promises3.mkdir(outDir, { recursive: true });
+  await import_promises3.writeFile(import_node_path.join(outDir, "badge.svg"), svg, "utf8");
+}
+async function hasResults(dir) {
+  if (!import_node_fs2.existsSync(dir))
+    return false;
+  try {
+    const entries = await import_promises3.readdir(dir);
+    return entries.some((e) => e.endsWith("-result.json") || e.endsWith("-container.json"));
+  } catch {
+    return false;
+  }
+}
+
+// src/main.ts
+async function ensureRepo(target, inputs) {
+  if (!target.isSibling)
+    return;
+  const ref = parseRepo(target.repoSlug);
+  if (await repoExists(ref, { token: inputs.token }))
+    return;
+  if (!inputs.autoCreateSiblings) {
+    throw new Error(`Sibling repo ${target.repoSlug} does not exist and auto-create-sibling-repos is false.`);
+  }
+  core6.info(`Creating sibling repo ${target.repoSlug}…`);
+  await createRepo(ref, {
+    token: inputs.token,
+    visibility: inputs.siblingVisibility
+  });
+}
+async function publishData(inputs, reportTmp) {
+  const dataTmp = await import_promises4.mkdtemp(import_node_path2.join(import_node_os.tmpdir(), "sst-data-"));
+  try {
+    await ensureRepo(inputs.data, inputs);
+    await cloneOrOrphan({
+      repoUrl: inputs.data.url,
+      dir: dataTmp,
+      branch: inputs.data.branch
+    });
+    const dataTarget = inputs.data.path ? import_node_path2.join(dataTmp, inputs.data.path) : dataTmp;
+    await copyDir(inputs.resultsDir, dataTarget);
+    await preserveHistory(reportTmp, dataTarget);
+    await commitAndPush({
+      dir: dataTmp,
+      branch: inputs.data.branch,
+      message: inputs.commitMessage,
+      name: inputs.commitName,
+      email: inputs.commitEmail
+    });
+    return dataTmp;
+  } finally {
+    await import_promises4.rm(dataTmp, { recursive: true, force: true }).catch(() => {});
+  }
+}
+async function publishPages(inputs, reportTmp) {
+  const pagesTmp = await import_promises4.mkdtemp(import_node_path2.join(import_node_os.tmpdir(), "sst-pages-"));
+  try {
+    await ensureRepo(inputs.pages, inputs);
+    if (inputs.pages.isSibling) {
+      await ensurePages(parseRepo(inputs.pages.repoSlug), inputs.pages.branch, inputs.pages.path, { token: inputs.token });
+    }
+    await cloneOrOrphan({
+      repoUrl: inputs.pages.url,
+      dir: pagesTmp,
+      branch: inputs.pages.branch
+    });
+    const pagesTarget = inputs.pages.path ? import_node_path2.join(pagesTmp, inputs.pages.path) : pagesTmp;
+    await copyDir(reportTmp, pagesTarget);
+    await writeBadge(reportTmp, pagesTarget);
+    await commitAndPush({
+      dir: pagesTmp,
+      branch: inputs.pages.branch,
+      message: inputs.commitMessage,
+      name: inputs.commitName,
+      email: inputs.commitEmail
+    });
+    return pagesTmp;
+  } finally {
+    await import_promises4.rm(pagesTmp, { recursive: true, force: true }).catch(() => {});
+  }
+}
+async function run() {
+  const inputs = readInputs();
+  if (!await hasResults(inputs.resultsDir)) {
+    throw new Error(`No allure result files (*-result.json / *-container.json) found in ${JSON.stringify(inputs.resultsDir)}. Make sure your test step writes results there before this action runs.`);
+  }
+  const mergedTmp = await import_promises4.mkdtemp(import_node_path2.join(import_node_os.tmpdir(), "sst-merge-"));
+  const reportTmp = await import_promises4.mkdtemp(import_node_path2.join(import_node_os.tmpdir(), "sst-report-"));
+  try {
+    try {
+      const scratchData = await import_promises4.mkdtemp(import_node_path2.join(import_node_os.tmpdir(), "sst-scratch-data-"));
+      try {
+        await cloneOrOrphan({
+          repoUrl: inputs.data.url,
+          dir: scratchData,
+          branch: inputs.data.branch
+        });
+        const scratchSrc = inputs.data.path ? import_node_path2.join(scratchData, inputs.data.path) : scratchData;
+        await copyDir(scratchSrc, mergedTmp);
+      } finally {
+        await import_promises4.rm(scratchData, { recursive: true, force: true }).catch(() => {});
+      }
+    } catch (err) {
+      core6.debug(`No prior data branch contents (${err.message}); first-run case.`);
+    }
+    await copyDir(inputs.resultsDir, mergedTmp);
+    await generate({
+      resultsDir: mergedTmp,
+      reportDir: reportTmp,
+      allureVersion: inputs.allureVersion
+    });
+    await publishData(inputs, reportTmp);
+    await publishPages(inputs, reportTmp);
+    const pagesRef = parseRepo(inputs.pages.repoSlug);
+    const url = pagesUrl(pagesRef, inputs.pages.path);
+    const badgeSrc = `${url}badge.svg`;
+    const badgeMarkdown = `[![Allure Report](${badgeSrc})](${url})`;
+    core6.setOutput("pages-url", url);
+    core6.setOutput("badge-markdown", badgeMarkdown);
+    core6.setOutput("data-branch-ref", `refs/heads/${inputs.data.branch}`);
+    core6.setOutput("pages-branch-ref", `refs/heads/${inputs.pages.branch}`);
+    const summary2 = await readSummary(reportTmp);
+    await core6.summary.addHeading("Standalone Stats", 2).addRaw(`<p><a href="${url}"><img src="${badgeSrc}" alt="Allure Report"/></a></p>`).addTable([
+      [
+        { data: "Total", header: true },
+        { data: "Passed", header: true },
+        { data: "Failed", header: true },
+        { data: "Broken", header: true },
+        { data: "Skipped", header: true }
+      ],
+      [
+        String(summary2.total),
+        String(summary2.passed),
+        String(summary2.failed),
+        String(summary2.broken),
+        String(summary2.skipped)
+      ]
+    ]).addRaw(`<p>Report: <a href="${url}">${url}</a></p>`).addRaw(`<pre>${badgeMarkdown}</pre>`).write();
+  } finally {
+    await import_promises4.rm(mergedTmp, { recursive: true, force: true }).catch(() => {});
+    await import_promises4.rm(reportTmp, { recursive: true, force: true }).catch(() => {});
+  }
+}
+run().catch((err) => {
+  core6.setFailed(err instanceof Error ? err.message : String(err));
+  process.exitCode = 1;
+});
