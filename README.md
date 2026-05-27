@@ -177,3 +177,18 @@ The bundled `dist/index.js` is committed, because GitHub Actions executes it
 directly without a build step. CI verifies the source compiles but doesn't
 enforce a byte-for-byte match on `dist/` — bun bundler output varies slightly
 across bun versions.
+
+## See also
+
+Related actions and resources in the same space:
+
+- [`simple-elf/allure-report-action`](https://github.com/simple-elf/allure-report-action) — the most widely used Allure report generator for GitHub Actions
+- [`mgrybyk-org/allure-report-branch-action`](https://github.com/mgrybyk-org/allure-report-branch-action) — Allure report with per-branch history
+- [`andgineer/allure-report`](https://github.com/marketplace/actions/generate-allure-report) — alternative Allure report generator
+- [`peaceiris/actions-gh-pages`](https://github.com/peaceiris/actions-gh-pages) — generic GitHub Pages publisher (the conventional pair with the generators above)
+- [Allure Report → GitHub Pages guide](https://allurereport.org/docs/guides/github-pages/) — the official multi-step workflow recipe
+
+Sister actions in this repo's family:
+
+- [`cinderblock/github-action-working-directory`](https://github.com/cinderblock/github-action-working-directory) — clone a branch, modify, commit back. The pattern this action's git plumbing is based on.
+- [`cinderblock/github-action-debug-list-files`](https://github.com/cinderblock/github-action-debug-list-files) — pretty-print the workspace tree at any point in a workflow. Handy when debugging what this action saw.
