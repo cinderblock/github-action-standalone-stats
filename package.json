@@ -27,7 +27,7 @@
     "url": "git+https://github.com/cinderblock/github-action-standalone-stats.git"
   },
   "dependencies": {
-    "@actions/core": "^1.11.1"
+    "@actions/core": "^3.0.1"
   },
   "devDependencies": {
     "@types/bun": "^1.2.0",
