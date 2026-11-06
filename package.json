@@ -17,7 +17,7 @@
     "bun": ">=1.2"
   },
   "scripts": {
-    "build": "bun build src/main.ts --target=node --format=cjs --outfile=dist/index.js",
+    "build": "bun build src/main.ts --target=node --format=esm --outfile=dist/index.js",
     "lint": "tsc --noEmit",
     "test": "bun test src --timeout 30000",
     "format": "prettier --write ."
