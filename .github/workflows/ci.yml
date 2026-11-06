@@ -18,3 +18,21 @@ jobs:
       - run: bun test src
       - name: Build bundle (sanity-check that source compiles)
         run: bun run build
+
+  # Load the committed bundle the way the runner does. A full run would push
+  # stats branches, so instead assert it gets past module loading and into
+  # the action's own environment guard. Catches module-format / runtime breaks
+  # that lint/test/build never exercise.
+  bundle-loads:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Bundle loads and reaches the env guard
+        run: |
+          set +e
+          env -u GITHUB_REPOSITORY node dist/index.js > out.txt 2>&1
+          cat out.txt
+          grep -q "only runs inside GitHub Actions" out.txt

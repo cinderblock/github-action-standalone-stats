@@ -106,5 +106,5 @@ outputs:
     description: Full ref (`refs/heads/<branch>`) of the pages branch that was updated.
 
 runs:
-  using: 'node20'
+  using: 'node24'
   main: 'dist/index.js'
