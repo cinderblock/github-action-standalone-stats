@@ -7,7 +7,11 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
@@ -15,14 +19,39 @@ jobs:
           bun-version: latest
       - run: bun install --frozen-lockfile
       - run: bun run lint
-      - run: bun test src
+      - run: bun test --reporter=junit --reporter-outfile=junit.xml
       - name: Build bundle (sanity-check that source compiles)
         run: bun run build
 
-  # Load the committed bundle the way the runner does. A full run would push
-  # stats branches, so instead assert it gets past module loading and into
-  # the action's own environment guard. Catches module-format / runtime breaks
-  # that lint/test/build never exercise.
+      # Dogfood: this repo's own results, through the committed bundle.
+      - name: Collect test results
+        if: ${{ !cancelled() }}
+        uses: ./collect
+        with:
+          tests: junit.xml
+
+  # Fan-in: merge every job's results, record master's history on gh-pages,
+  # and write the job summary. PRs (forks too) only get a comparison.
+  stats:
+    needs: test
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: read
+    # No `concurrency` group on purpose: a newly queued job cancels any job
+    # already pending in its group, which would drop runs' stats. The action
+    # retries lost push races itself.
+    steps:
+      - uses: actions/checkout@v7
+      - name: Publish stats
+        id: stats
+        uses: ./
+      - run: echo "Dashboard ${{ steps.stats.outputs.site-url }} (recorded ${{ steps.stats.outputs.recorded }})"
+
+  # Load the committed bundles the way the runner does, and assert they get
+  # past module loading into the action's own environment guard. Catches
+  # module-format / runtime breaks that lint/test/build never exercise.
   bundle-loads:
     runs-on: ubuntu-latest
     steps:
@@ -30,9 +59,11 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-      - name: Bundle loads and reaches the env guard
+      - name: Bundles load and reach the env guard
         run: |
           set +e
-          env -u GITHUB_REPOSITORY node dist/index.js > out.txt 2>&1
-          cat out.txt
-          grep -q "only runs inside GitHub Actions" out.txt
+          for entry in dist/publish/main.js dist/collect/main.js; do
+            env -u GITHUB_REPOSITORY node "$entry" > out.txt 2>&1
+            cat out.txt
+            grep -q "only runs inside GitHub Actions" out.txt || { echo "::error::$entry did not load"; exit 1; }
+          done

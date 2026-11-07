@@ -1,15 +1,18 @@
 {
   "name": "github-action-standalone-stats",
   "version": "1.0.0",
-  "description": "GitHub Action that publishes Allure test reports to a parallel branch of your repo for self-contained pretty charts, trend graphs, and a README badge — no third-party service required.",
+  "description": "Self-hosted test and coverage stats for GitHub Actions: merges results across a matrix, keeps history on a branch, and publishes a dashboard and badges with GitHub Pages. No third-party service.",
   "private": true,
   "type": "module",
   "author": "Cameron Tacklind <cameron@tacklind.com>",
   "license": "MIT",
   "keywords": [
     "github-actions",
+    "test-results",
+    "coverage",
+    "junit",
+    "ctrf",
     "allure",
-    "test-report",
     "stats",
     "gh-pages"
   ],
@@ -17,9 +20,9 @@
     "bun": ">=1.2"
   },
   "scripts": {
-    "build": "bun build src/main.ts --target=node --format=esm --outfile=dist/index.js",
+    "build": "bun scripts/build.ts",
     "lint": "tsc --noEmit",
-    "test": "bun test src --timeout 30000",
+    "test": "bun test --timeout 30000",
     "format": "prettier --write ."
   },
   "repository": {
@@ -27,7 +30,10 @@
     "url": "git+https://github.com/cinderblock/github-action-standalone-stats.git"
   },
   "dependencies": {
-    "@actions/core": "^3.0.1"
+    "@actions/artifact": "6.3.1",
+    "@actions/core": "^3.0.1",
+    "@actions/glob": "0.7.0",
+    "fast-xml-parser": "5.11.2"
   },
   "devDependencies": {
     "@types/bun": "^1.2.0",

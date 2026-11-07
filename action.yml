@@ -1,110 +1,131 @@
-# https://help.github.com/en/articles/metadata-syntax-for-github-actions
+# https://docs.github.com/en/actions/reference/workflows-and-actions/metadata-syntax
 
 name: Standalone Stats
 description: >-
-  Publish Allure test reports to a parallel branch of your repo (or a sibling
-  repo) for self-contained pretty charts, trend graphs, and README badges -
-  with no third-party service required.
+  Self-hosted test (and soon coverage) stats: merges results from every job
+  in a run, keeps history on a branch of your repo, and publishes a
+  dashboard and badges with GitHub Pages. No third-party service.
 author: Cameron Tacklind <cameron@tacklind.com>
 branding:
   icon: bar-chart-2
   color: blue
 
 inputs:
-  # ---- Data branch (raw allure-results, accumulated across runs) ----
-  data-branch:
-    required: false
-    description: Branch that stores the cumulative allure-results directory + history.
-    default: allure-data
-  data-repo:
-    required: false
+  # ---- What to publish ----
+  tests:
     description: >-
-      Repository (`owner/name`) to store cumulative allure-results in.
-      Default is the current repository. If set to a sibling repo, a PAT
-      with `repo` scope must be supplied via `token`.
+      Test result files or directories (globs, one per line) to read in this
+      job, for single-job workflows. JUnit XML, CTRF JSON and Allure results
+      are detected automatically. In a matrix, run the `collect` action in
+      each job instead and leave this empty.
     default: ''
-  data-path:
-    required: false
-    description: Subdirectory inside data-branch where the cumulative results live.
+  test-format:
+    description: Force a format for `tests` (junit, ctrf, allure). Default auto.
+    default: auto
+  flags:
+    description: Labels for the results read via `tests` (comma or newline separated).
     default: ''
+  id:
+    description: Extra identity for the results read via `tests`, if this job publishes more than one set.
+    default: ''
+  matrix:
+    description: Matrix values of this job. Leave the default.
+    default: ${{ toJSON(matrix) }}
+  download-artifacts:
+    description: Merge in the uploads that `collect` steps made earlier in this run.
+    default: 'true'
+  artifact-prefix:
+    description: Artifact name prefix shared with `collect`.
+    default: standalone-stats-
 
-  # ---- Pages branch (rendered HTML report served by GitHub Pages) ----
-  pages-branch:
-    required: false
-    description: Branch that stores the rendered allure-report (typically served by GitHub Pages).
+  # ---- Where ----
+  repo:
+    description: >-
+      Repository (`owner/name`) holding the stats branch. Default: this repo.
+      Another repo needs a `token` that can push to it.
+    default: ''
+  branch:
+    description: Branch holding stats data, viewer and badges.
     default: gh-pages
-  pages-repo:
-    required: false
+  path:
     description: >-
-      Repository (`owner/name`) to store the rendered report in.
-      Default is the current repository. If set to a sibling repo, a PAT
-      with `repo` scope must be supplied via `token`.
+      Directory inside the branch. Default `stats`, or `<owner>/<repo>/stats`
+      when `repo` is another repository.
     default: ''
-  pages-path:
-    required: false
-    description: Subdirectory inside pages-branch where the rendered report is placed.
-    default: ''
-
-  # ---- Source of fresh results (from the consumer's test run) ----
-  results-dir:
-    required: false
-    description: Directory containing this run's freshly generated allure-results JSON.
-    default: allure-results
-
-  # ---- Auth ----
   token:
-    required: false
-    description: >-
-      Token used to push to data-branch and pages-branch. Defaults to the
-      workflow's GITHUB_TOKEN (sufficient for same-repo mode). For
-      sibling-repo mode, supply a PAT with `repo` scope.
+    description: Token used to read and push the stats branch.
     default: ${{ github.token }}
 
-  # ---- Commit author ----
+  # ---- Behavior ----
+  record:
+    description: >-
+      `auto` stores runs from pushes, schedules and manual runs on the default
+      branch; other runs (PRs) are compared against it but not stored.
+      `always` or `never` override.
+    default: auto
+  history-window:
+    description: Runs kept in the per-test history (flaky and slow tests).
+    default: '30'
+  viewer:
+    description: Copy the dashboard into the stats directory.
+    default: 'true'
+  allow-public-pages-for-private-repo:
+    description: >-
+      Publish even though the stats repo is private and its public Pages site
+      serves the stats branch, making test names and messages public.
+    default: 'false'
+  fail-on-test-failure:
+    description: Fail this step when any test failed.
+    default: 'false'
+  push-attempts:
+    description: Attempts to push when another run pushed to the stats branch first.
+    default: '6'
+
+  # ---- Separate stats repo ----
+  create-repo:
+    description: Create `repo` if it doesn't exist (the token needs permission to create repos).
+    default: 'false'
+  repo-visibility:
+    description: Visibility of a repo created by `create-repo` (public or private).
+    default: public
+
+  # ---- Commits ----
   commit-name:
-    required: false
-    description: Git user.name used for stats commits.
+    description: Git user.name for stats commits.
     default: github-actions[bot]
   commit-email:
-    required: false
-    description: Git user.email used for stats commits.
+    description: Git user.email for stats commits.
     default: 41898282+github-actions[bot]@users.noreply.github.com
   commit-message:
-    required: false
-    description: Commit message used on both data-branch and pages-branch.
-    default: 'standalone-stats: publish run ${{ github.run_id }}/${{ github.run_attempt }}'
-
-  # ---- Allure CLI ----
-  allure-version:
-    required: false
-    description: Pinned version of the allure-commandline npm package used to generate the report.
-    default: '2.30.0'
-
-  # ---- Sibling-repo auto-create (only relevant when *-repo is set) ----
-  auto-create-sibling-repos:
-    required: false
-    description: >-
-      If true and a configured sibling repo doesn't exist, create it via the
-      GitHub REST API (requires `token` with `repo` scope, plus `admin:org`
-      if creating in an organization).
-    default: 'true'
-  sibling-repo-visibility:
-    required: false
-    description: >-
-      Visibility for auto-created sibling repos. One of `public` or
-      `private`. Note: GitHub Pages on a private repo requires a paid plan.
-    default: 'public'
+    description: Commit message. Default names the repo, commit and run.
+    default: ''
 
 outputs:
-  pages-url:
-    description: HTTPS URL where the rendered allure report is served.
+  site-url:
+    description: URL of the stats dashboard.
+  badge-url:
+    description: URL of the tests badge.
   badge-markdown:
-    description: Pre-built Markdown snippet linking the badge SVG to the rendered report.
-  data-branch-ref:
-    description: Full ref (`refs/heads/<branch>`) of the data branch that was updated.
-  pages-branch-ref:
-    description: Full ref (`refs/heads/<branch>`) of the pages branch that was updated.
+    description: Markdown for a README badge linking to the dashboard.
+  site-dir:
+    description: >-
+      Local copy of the published stats directory, for deploying with
+      actions/upload-pages-artifact. Only set when the run was recorded.
+  recorded:
+    description: '`true` if this run was stored in history.'
+  run-key:
+    description: Key of this run in the data (`<run id>-<attempt>`).
+  tests-total:
+    description: Test results in this run (summed over jobs).
+  tests-passed:
+    description: Passed results.
+  tests-failed:
+    description: Failed or errored results.
+  tests-skipped:
+    description: Skipped results.
+  new-failures:
+    description: Tests failing now that weren't failing in the baseline run.
 
 runs:
-  using: 'node24'
-  main: 'dist/index.js'
+  using: node24
+  main: dist/publish/main.js

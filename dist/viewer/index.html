@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Test Stats</title>
+    <meta name="generator" content="github-action-standalone-stats" />
+    <style>
+      :root {
+        --bg: #ffffff;
+        --fg: #1f2328;
+        --muted: #59636e;
+        --line: #d1d9e0;
+        --card: #f6f8fa;
+        --pass: #1a7f37;
+        --fail: #cf222e;
+        --skip: #9a6700;
+        --accent: #0969da;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0d1117;
+          --fg: #e6edf3;
+          --muted: #9198a1;
+          --line: #3d444d;
+          --card: #151b23;
+          --pass: #3fb950;
+          --fail: #f85149;
+          --skip: #d29922;
+          --accent: #4493f8;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          14px/1.5 system-ui,
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+      }
+      main {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 24px 16px 48px;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 4px;
+      }
+      h2 {
+        font-size: 15px;
+        margin: 28px 0 8px;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      a {
+        color: var(--accent);
+      }
+      .tiles {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 8px;
+        margin-top: 16px;
+      }
+      .tile {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px 12px;
+      }
+      .tile b {
+        display: block;
+        font-size: 22px;
+        font-variant-numeric: tabular-nums;
+      }
+      .pass {
+        color: var(--pass);
+      }
+      .fail {
+        color: var(--fail);
+      }
+      .skip {
+        color: var(--skip);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-variant-numeric: tabular-nums;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        color: var(--muted);
+        font-weight: 600;
+        font-size: 12px;
+      }
+      td.n,
+      th.n {
+        text-align: right;
+      }
+      .scroll {
+        overflow-x: auto;
+      }
+      svg.trend {
+        width: 100%;
+        height: 80px;
+        display: block;
+      }
+      pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+        margin: 4px 0 0;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      code {
+        font-size: 12px;
+      }
+      .hist {
+        font-family: ui-monospace, monospace;
+        letter-spacing: 1px;
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1 id="title">Test stats</h1>
+      <div class="muted" id="sub">Loading…</div>
+      <div class="tiles" id="tiles"></div>
+      <h2>Trend</h2>
+      <svg
+        class="trend"
+        id="trend"
+        viewBox="0 0 1000 80"
+        preserveAspectRatio="none"
+        role="img"
+        aria-label="Failing results per run"
+      ></svg>
+      <div class="muted" id="trend-note"></div>
+      <h2>Latest failures</h2>
+      <div id="failures" class="muted">None.</div>
+      <h2>Flaky tests</h2>
+      <div id="flaky" class="muted">None in the recent window.</div>
+      <h2>Recent runs</h2>
+      <div class="scroll"><table id="runs"></table></div>
+    </main>
+    <script>
+      (async () => {
+        const $ = id => document.getElementById(id);
+        const esc = s =>
+          String(s ?? '').replace(
+            /[&<>"']/g,
+            c =>
+              ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;',
+              })[c],
+          );
+        const fmtTime = iso => {
+          const d = new Date(iso);
+          const local = d.toLocaleString(undefined, {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+            timeZoneName: 'short',
+          });
+          return `<span title="${esc(d.toISOString().replace('.000', ''))}">${esc(local)}</span>`;
+        };
+        const dur = ms =>
+          ms < 1000
+            ? `${ms} ms`
+            : ms < 60000
+              ? `${(ms / 1000).toFixed(1)} s`
+              : `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`;
+        const get = async p => {
+          const r = await fetch(p, { cache: 'no-cache' });
+          if (!r.ok) throw new Error(`${p}: HTTP ${r.status}`);
+          return r.json();
+        };
+
+        let index;
+        try {
+          index = await get('data/index.json');
+        } catch (e) {
+          $('sub').textContent = `No data yet (${e.message}).`;
+          return;
+        }
+        if (index.schema !== 1) {
+          $('sub').textContent = `Unsupported data schema ${index.schema}.`;
+          return;
+        }
+        const runs = index.runs;
+        document.title = `${index.repo} · Test stats`;
+        $('title').textContent = index.repo;
+        if (!runs.length) {
+          $('sub').textContent = 'No runs stored yet.';
+          return;
+        }
+        const last = runs[runs.length - 1];
+        const repoUrl = last.url.replace(/\/actions\/runs\/.*$/, '');
+        $('sub').innerHTML =
+          `Latest: <a href="${esc(repoUrl)}/commit/${esc(last.sha)}"><code>${esc(last.sha.slice(0, 7))}</code></a> on ${esc(last.branch ?? '?')}, ${fmtTime(last.time)} · <a href="${esc(last.url)}">run</a>`;
+
+        const t = last.tests,
+          bad = t.failed + t.errored;
+        $('tiles').innerHTML = [
+          ['Passed', t.passed, 'pass'],
+          ['Failing', bad, bad ? 'fail' : ''],
+          ['Skipped', t.skipped, t.skipped ? 'skip' : ''],
+          ['Tests', last.unique, ''],
+          ['Flaky', last.flaky, last.flaky ? 'skip' : ''],
+          ['Total time', dur(t.durationMs), ''],
+        ]
+          .map(
+            ([k, v, c]) =>
+              `<div class="tile"><span class="muted">${k}</span><b class="${c}">${esc(v)}</b></div>`,
+          )
+          .join('');
+
+        // Trend: stacked bars of passed vs failing per run (last 100).
+        const recent = runs.slice(-100);
+        const max = Math.max(1, ...recent.map(r => r.tests.total));
+        const w = 1000 / recent.length;
+        $('trend').innerHTML = recent
+          .map((r, i) => {
+            const f = r.tests.failed + r.tests.errored,
+              p = r.tests.passed;
+            const hp = (78 * p) / max,
+              hf = (78 * f) / max,
+              x = i * w + w * 0.1,
+              bw = w * 0.8;
+            return (
+              `<g><title>${esc(r.sha.slice(0, 7))}: ${p} passed, ${f} failing</title>` +
+              `<rect x="${x}" y="${80 - hp}" width="${bw}" height="${hp}" fill="var(--pass)" opacity=".75"/>` +
+              `<rect x="${x}" y="${80 - hp - hf}" width="${bw}" height="${hf}" fill="var(--fail)"/></g>`
+            );
+          })
+          .join('');
+        $('trend-note').textContent =
+          `${recent.length} run${recent.length === 1 ? '' : 's'}; green passed, red failing.`;
+
+        try {
+          const rec = await get(last.path);
+          const labels = new Map(rec.uploads.map(u => [u.key, u.label]));
+          if (rec.tests.failures.length) {
+            $('failures').classList.remove('muted');
+            $('failures').innerHTML =
+              `<table><tr><th>Test</th><th>Where</th></tr>${rec.tests.failures
+                .map(
+                  f =>
+                    `<tr><td><b>${esc(f.name)}</b><div class="muted">${esc(f.suite)}</div>${f.message ? `<pre>${esc(f.message.split('\n').slice(0, 6).join('\n'))}</pre>` : ''}</td>` +
+                    `<td>${f.uploads.map(k => esc(labels.get(k) ?? k)).join('<br>')}</td></tr>`,
+                )
+                .join('')}</table>` +
+              (rec.tests.failuresTruncated
+                ? '<p class="muted">More failures than the stored limit.</p>'
+                : '');
+          }
+        } catch {
+          /* keep "None." */
+        }
+
+        try {
+          const tests = await get('data/tests.json');
+          const flaky = Object.entries(tests.tests)
+            .map(([id, x]) => ({
+              id,
+              ...x,
+              flips: [...x.h.replace(/[-s]/g, '')].reduce(
+                (n, c, i, a) =>
+                  n + (i && (c === 'p') !== (a[i - 1] === 'p') ? 1 : 0),
+                0,
+              ),
+            }))
+            .filter(x => x.flips >= 2)
+            .sort((a, b) => b.flips - a.flips)
+            .slice(0, 30);
+          if (flaky.length) {
+            $('flaky').classList.remove('muted');
+            const cell = c =>
+              c === 'p'
+                ? '<span class="pass">●</span>'
+                : c === 'f' || c === 'e'
+                  ? '<span class="fail">●</span>'
+                  : c === 's'
+                    ? '<span class="skip">○</span>'
+                    : '<span class="muted">·</span>';
+            $('flaky').innerHTML =
+              `<div class="scroll"><table><tr><th>Test</th><th class="n">Flips</th><th>Last ${tests.runs.length} runs</th></tr>${flaky
+                .map(
+                  x =>
+                    `<tr><td>${esc(x.name)}<div class="muted">${esc(x.suite)}</div></td><td class="n">${x.flips}</td><td class="hist">${[...x.h].map(cell).join('')}</td></tr>`,
+                )
+                .join('')}</table></div>`;
+          }
+        } catch {
+          /* keep default */
+        }
+
+        $('runs').innerHTML =
+          '<tr><th>When</th><th>Commit</th><th class="n">Passed</th><th class="n">Failing</th><th class="n">Skipped</th><th class="n">Time</th></tr>' +
+          runs
+            .slice(-30)
+            .reverse()
+            .map(r => {
+              const f = r.tests.failed + r.tests.errored;
+              return (
+                `<tr><td>${fmtTime(r.time)}</td><td><a href="${esc(r.url)}"><code>${esc(r.sha.slice(0, 7))}</code></a></td>` +
+                `<td class="n">${r.tests.passed}</td><td class="n ${f ? 'fail' : ''}">${f}</td><td class="n">${r.tests.skipped}</td><td class="n">${dur(r.tests.durationMs)}</td></tr>`
+              );
+            })
+            .join('');
+      })();
+    </script>
+  </body>
+</html>

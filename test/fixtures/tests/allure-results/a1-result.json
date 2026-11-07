@@ -1,0 +1,1 @@
+{"uuid":"a1","historyId":"h-login","name":"logs in","fullName":"auth.login","status":"failed","statusDetails":{"message":"timeout"},"start":1000,"stop":1500,"labels":[{"name":"parentSuite","value":"e2e"},{"name":"suite","value":"auth"}]}
