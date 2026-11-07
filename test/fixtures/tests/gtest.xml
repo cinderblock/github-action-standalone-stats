@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="4" failures="1" disabled="1" errors="0" time="0.012" name="AllTests">
+  <testsuite name="Crc8" tests="4" failures="1" disabled="1" errors="0" time="0.012">
+    <testcase name="Empty" file="/home/runner/work/lib/lib/test/crc8.cpp" line="10" status="run" result="completed" time="0.001" classname="Crc8" />
+    <testcase name="Known" file="/home/runner/work/lib/lib/test/crc8.cpp" line="15" status="run" result="completed" time="0.002" classname="Crc8">
+      <failure message="/home/runner/work/lib/lib/test/crc8.cpp:17&#x0A;Expected equality of these values:&#x0A;  crc(&quot;abc&quot;)&#x0A;  0x5F" type=""><![CDATA[crc8.cpp:17
+Expected equality of these values:
+  crc("abc")
+  0x5F]]></failure>
+    </testcase>
+    <testcase name="DISABLED_Slow" file="/home/runner/work/lib/lib/test/crc8.cpp" line="22" status="notrun" result="suppressed" time="0" classname="Crc8" />
+    <testcase name="Large" file="/home/runner/work/lib/lib/test/crc8.cpp" line="30" status="run" result="completed" time="1,234.5" classname="Crc8" />
+  </testsuite>
+</testsuites>

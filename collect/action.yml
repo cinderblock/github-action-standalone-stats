@@ -1,0 +1,50 @@
+name: Standalone Stats - collect
+description: >-
+  Read this job's test results, normalize them, and upload them for the
+  standalone-stats publish step to merge. Use one per matrix job.
+author: Cameron Tacklind <cameron@tacklind.com>
+branding:
+  icon: upload
+  color: blue
+
+inputs:
+  tests:
+    description: >-
+      Test result files or directories (globs, one per line). JUnit XML, CTRF
+      JSON and Allure results are detected automatically.
+    required: true
+  test-format:
+    description: Force a format (junit, ctrf, allure). Default auto.
+    default: auto
+  flags:
+    description: Labels for this job's results (comma or newline separated), e.g. `cpp, loopback`.
+    default: ''
+  id:
+    description: Extra identity, only needed when one job runs collect more than once.
+    default: ''
+  matrix:
+    description: Matrix values of this job. Leave the default; it keeps matrix legs apart.
+    default: ${{ toJSON(matrix) }}
+  if-no-files-found:
+    description: '`warn`, `error` or `ignore` when `tests` matches nothing.'
+    default: warn
+  artifact-prefix:
+    description: Artifact name prefix shared with the publish step.
+    default: standalone-stats-
+  retention-days:
+    description: Days to keep the upload artifact.
+    default: '7'
+
+outputs:
+  key:
+    description: Identity key of this upload.
+  artifact:
+    description: Name of the uploaded artifact.
+  tests-total:
+    description: Test results read.
+  tests-failed:
+    description: Failed or errored results.
+
+runs:
+  using: node24
+  main: ../dist/collect/main.js

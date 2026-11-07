@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="bun test" tests="11" assertions="24" failures="0" skipped="0" time="0.0457376">
+  <testsuite name="src\inputs.test.ts" file="src\inputs.test.ts" tests="11" assertions="24" failures="0" skipped="0" time="0.037366" hostname="">
+    <testsuite name="readInputs" file="src\inputs.test.ts" line="13" tests="11" assertions="24" failures="0" skipped="0" time="0" hostname="">
+      <testcase name="applies defaults and resolves same-repo mode from GITHUB_REPOSITORY" classname="readInputs" time="0.000318" file="src\inputs.test.ts" line="14" assertions="10" />
+      <testcase name="flags sibling-repo mode when data-repo / pages-repo differ" classname="readInputs" time="0.000041" file="src\inputs.test.ts" line="29" assertions="2" />
+      <testcase name="embeds the token into the clone URL" classname="readInputs" time="0.000043" file="src\inputs.test.ts" line="42" assertions="1" />
+      <testcase name="trims slashes from data-path / pages-path" classname="readInputs" time="0.000071" file="src\inputs.test.ts" line="49" assertions="2" />
+      <testcase name="falls back to GITHUB_TOKEN when token input is blank" classname="readInputs" time="0.00003" file="src\inputs.test.ts" line="58" assertions="1" />
+      <testcase name="throws when no token is available" classname="readInputs" time="0.000086" file="src\inputs.test.ts" line="66" assertions="1" />
+      <testcase name="throws when GITHUB_REPOSITORY is missing" classname="readInputs" time="0.00005" file="src\inputs.test.ts" line="72" assertions="1" />
+      <testcase name="parses booleans for auto-create-sibling-repos" classname="readInputs" time="0.000058" file="src\inputs.test.ts" line="78" assertions="3" />
+      <testcase name="rejects bad boolean values" classname="readInputs" time="0.000056" file="src\inputs.test.ts" line="93" assertions="1" />
+      <testcase name="rejects malformed repo slugs" classname="readInputs" time="0.000056" file="src\inputs.test.ts" line="99" assertions="1" />
+      <testcase name="rejects invalid visibility" classname="readInputs" time="0.000046" file="src\inputs.test.ts" line="105" assertions="1" />
+    </testsuite>
+  </testsuite>
+</testsuites>

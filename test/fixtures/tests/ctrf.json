@@ -1,0 +1,42 @@
+{
+  "reportFormat": "CTRF",
+  "specVersion": "0.0.0",
+  "results": {
+    "tool": { "name": "jest" },
+    "summary": {
+      "tests": 4,
+      "passed": 2,
+      "failed": 1,
+      "skipped": 0,
+      "pending": 1,
+      "other": 0,
+      "start": 1,
+      "stop": 2
+    },
+    "tests": [
+      {
+        "name": "adds",
+        "status": "passed",
+        "duration": 12,
+        "suite": "math > add",
+        "filePath": "/home/runner/work/app/app/src/math.test.ts"
+      },
+      {
+        "name": "subtracts",
+        "status": "failed",
+        "duration": 5,
+        "suite": ["math", "sub"],
+        "message": "Expected 1, received 2",
+        "trace": "at sub (src/math.ts:4:10)"
+      },
+      {
+        "name": "retries",
+        "status": "passed",
+        "duration": 30,
+        "flaky": true,
+        "retries": 2
+      },
+      { "name": "todo", "status": "pending", "duration": 0 }
+    ]
+  }
+}
