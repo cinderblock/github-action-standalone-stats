@@ -100,7 +100,7 @@ Order of work, as Cameron set it:
   "No baseline available". Fixed: empty `extraheader` values reset the list before ours, and git
   never runs in the workspace by default. Covered by a test against a local HTTP server.
 - **A swallowed baseline error hides real failures.** The job went green while compare was broken.
-  Consider surfacing "no baseline because of an error" as a warning, not info (phase 1 follow-up).
+  Now a warning (`core.warning`) instead of info.
 
 ## Progress log
 

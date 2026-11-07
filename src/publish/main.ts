@@ -92,7 +92,9 @@ async function readOnlyBaseline(
       await rm(dir, { recursive: true, force: true }).catch(() => {});
     }
   } catch (err) {
-    core.info(`No baseline available: ${(err as Error).message}`);
+    // A missing branch returned above; anything here is a real failure
+    // (auth, network), so make it visible instead of a quiet "no baseline".
+    core.warning(`Could not read the baseline, so nothing is compared: ${(err as Error).message}`);
     return undefined;
   }
 }

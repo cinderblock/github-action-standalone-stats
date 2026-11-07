@@ -832,7 +832,7 @@ async function readOnlyBaseline(remote, inputs, ctx, branch) {
       await rm2(dir, { recursive: true, force: true }).catch(() => {});
     }
   } catch (err) {
-    info(`No baseline available: ${err.message}`);
+    warning(`Could not read the baseline, so nothing is compared: ${err.message}`);
     return;
   }
 }
