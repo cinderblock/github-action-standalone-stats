@@ -187,3 +187,42 @@ describe('git', () => {
     expect(isRaceRejection(new Error('other'))).toBe(false);
   });
 });
+
+describe('git auth', () => {
+  // actions/checkout persists an Authorization extraheader for the
+  // workspace. If git sends it alongside ours, GitHub answers 400
+  // "Duplicate header: Authorization" (seen in this repo's own CI).
+  it('sends exactly one Authorization header, ours, over inherited ones', async () => {
+    const seen: (string | null)[] = [];
+    const server = Bun.serve({
+      port: 0,
+      hostname: '127.0.0.1',
+      fetch(req) {
+        seen.push(req.headers.get('authorization'));
+        return new Response('nope', { status: 404 });
+      },
+    });
+    const dir = await mkdtemp(join(tmpdir(), 'sst-auth-'));
+    const cfg = join(dir, 'gitconfig');
+    const base = `http://127.0.0.1:${server.port}`;
+    await writeFile(
+      cfg,
+      `[http]\n\textraheader = AUTHORIZATION: basic generic-stale\n` +
+        `[http "${base}/"]\n\textraheader = AUTHORIZATION: basic url-stale\n`,
+    );
+    const saved = process.env.GIT_CONFIG_GLOBAL;
+    process.env.GIT_CONFIG_GLOBAL = cfg;
+    try {
+      const remote = { url: `${base}/o/r.git`, token: 'tok' };
+      await expect(remoteHasBranch(remote, 'gh-pages')).rejects.toThrow();
+      const ours = `basic ${Buffer.from('x-access-token:tok').toString('base64')}`;
+      expect(seen.length).toBeGreaterThan(0);
+      for (const h of seen) expect(h).toBe(ours);
+    } finally {
+      if (saved === undefined) delete process.env.GIT_CONFIG_GLOBAL;
+      else process.env.GIT_CONFIG_GLOBAL = saved;
+      server.stop(true);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});

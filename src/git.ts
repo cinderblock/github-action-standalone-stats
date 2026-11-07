@@ -28,16 +28,28 @@ export class GitError extends Error {
   }
 }
 
-function env(remote: Remote): NodeJS.ProcessEnv {
+/** Env for a git call. With a token, any `http.extraheader` git would
+ *  otherwise pick up (actions/checkout persists one per workspace, and
+ *  GitHub rejects a request carrying two Authorization headers with a 400) is
+ *  cleared first: an empty value resets the list. GIT_CONFIG_* entries apply
+ *  after every config file, and are appended after any the caller set. */
+export function gitEnv(remote: Remote): NodeJS.ProcessEnv {
   const e: NodeJS.ProcessEnv = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
   if (remote.token && /^https?:\/\//.test(remote.url)) {
     const origin = new URL(remote.url).origin;
     const basic = Buffer.from(`x-access-token:${remote.token}`).toString(
       'base64',
     );
-    e.GIT_CONFIG_COUNT = '1';
-    e.GIT_CONFIG_KEY_0 = `http.${origin}/.extraheader`;
-    e.GIT_CONFIG_VALUE_0 = `AUTHORIZATION: basic ${basic}`;
+    let n = Number.parseInt(e.GIT_CONFIG_COUNT ?? '0', 10) || 0;
+    const add = (key: string, value: string) => {
+      e[`GIT_CONFIG_KEY_${n}`] = key;
+      e[`GIT_CONFIG_VALUE_${n}`] = value;
+      n++;
+    };
+    add('http.extraheader', '');
+    add(`http.${origin}/.extraheader`, '');
+    add(`http.${origin}/.extraheader`, `AUTHORIZATION: basic ${basic}`);
+    e.GIT_CONFIG_COUNT = String(n);
   }
   return e;
 }
@@ -52,7 +64,14 @@ export function git(
     execFile(
       'git',
       args,
-      { cwd, env: env(remote), maxBuffer: 64 * 1024 * 1024, windowsHide: true },
+      {
+        // Never run in the workspace by accident: its repo-local config (a
+        // checkout's persisted credentials, say) would apply to our calls.
+        cwd: cwd ?? tmpdir(),
+        env: gitEnv(remote),
+        maxBuffer: 64 * 1024 * 1024,
+        windowsHide: true,
+      },
       (err, stdout, stderr) => {
         if (err) {
           const code = typeof err.code === 'number' ? err.code : null;

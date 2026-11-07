@@ -48,21 +48,33 @@ class GitError extends Error {
     this.code = code;
   }
 }
-function env(remote) {
+function gitEnv(remote) {
   const e = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
   if (remote.token && /^https?:\/\//.test(remote.url)) {
     const origin = new URL(remote.url).origin;
     const basic = Buffer.from(`x-access-token:${remote.token}`).toString("base64");
-    e.GIT_CONFIG_COUNT = "1";
-    e.GIT_CONFIG_KEY_0 = `http.${origin}/.extraheader`;
-    e.GIT_CONFIG_VALUE_0 = `AUTHORIZATION: basic ${basic}`;
+    let n = Number.parseInt(e.GIT_CONFIG_COUNT ?? "0", 10) || 0;
+    const add = (key, value) => {
+      e[`GIT_CONFIG_KEY_${n}`] = key;
+      e[`GIT_CONFIG_VALUE_${n}`] = value;
+      n++;
+    };
+    add("http.extraheader", "");
+    add(`http.${origin}/.extraheader`, "");
+    add(`http.${origin}/.extraheader`, `AUTHORIZATION: basic ${basic}`);
+    e.GIT_CONFIG_COUNT = String(n);
   }
   return e;
 }
 function git(remote, args, cwd) {
   debug(`git ${args.join(" ")}${cwd ? ` (in ${cwd})` : ""}`);
   return new Promise((resolve, reject) => {
-    execFile("git", args, { cwd, env: env(remote), maxBuffer: 64 * 1024 * 1024, windowsHide: true }, (err, stdout, stderr) => {
+    execFile("git", args, {
+      cwd: cwd ?? tmpdir(),
+      env: gitEnv(remote),
+      maxBuffer: 64 * 1024 * 1024,
+      windowsHide: true
+    }, (err, stdout, stderr) => {
       if (err) {
         const code = typeof err.code === "number" ? err.code : null;
         reject(new GitError(`git ${args[0]} failed (exit ${code ?? "?"}): ${stderr.trim() || err.message}`, stderr, code));
