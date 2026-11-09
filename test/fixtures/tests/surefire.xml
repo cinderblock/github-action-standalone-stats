@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.FooTest" time="0.5" tests="2" errors="0" skipped="0" failures="0">
+  <testcase name="retriesThenPasses" classname="com.example.FooTest" time="0.3">
+    <flakyFailure message="expected 1 but was 2" type="java.lang.AssertionError"><![CDATA[java.lang.AssertionError: expected 1 but was 2]]></flakyFailure>
+  </testcase>
+  <testcase name="plain" classname="com.example.FooTest" time="0.2"/>
+</testsuite>
