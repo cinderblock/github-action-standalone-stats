@@ -19,6 +19,11 @@ import {
   type TestStatus,
   type Upload,
 } from './model.js';
+import {
+  COVERAGE_FORMAT_LIST,
+  decodeCoverage,
+  encodeCoverage,
+} from './coverage/model.js';
 
 export const DEFAULT_PREFIX = 'standalone-stats-';
 const FILE = 'upload.json';
@@ -57,7 +62,7 @@ export function validateUpload(raw: unknown): Upload {
     ).slice(0, 50))
       dims[k.slice(0, 100)] = str(v, 200);
 
-  return {
+  const out: Upload = {
     schema: SCHEMA,
     key,
     label: str(u.label, 300) || key,
@@ -78,6 +83,24 @@ export function validateUpload(raw: unknown): Upload {
       }),
     tests: tests.map(validateTest),
   };
+  const cov = u.coverage as Record<string, unknown> | undefined;
+  if (cov && typeof cov === 'object') {
+    // Decoding validates every entry and enforces the size limits.
+    const files = encodeCoverage(decodeCoverage(cov.files));
+    const sources = (Array.isArray(cov.sources) ? cov.sources : [])
+      .slice(0, 1000)
+      .map(s => {
+        const o = (s ?? {}) as Record<string, unknown>;
+        return {
+          format: COVERAGE_FORMAT_LIST.find(f => f === o.format) ?? 'lcov',
+          path: str(o.path),
+          files: Math.floor(num(o.files)),
+          external: Math.floor(num(o.external)),
+        };
+      });
+    if (sources.length || files.length) out.coverage = { sources, files };
+  }
+  return out;
 }
 
 function validateTest(raw: unknown): TestCase {

@@ -11,6 +11,9 @@ export interface Context {
   defaultBranch?: string;
   /** For pull requests: the branch the PR targets. */
   baseBranch?: string;
+  /** Commit to diff against for patch coverage: the PR's base (the compare
+   *  API diffs from the merge base), or the previous tip for a push. */
+  patchBase?: string;
   /** True when the event came from a fork, whose token is read-only. */
   fromFork: boolean;
   workspace: string;
@@ -85,6 +88,14 @@ export function readContext(env: Env = process.env): Context {
   const base = env.GITHUB_BASE_REF || (pr?.base?.ref as string | undefined);
   if (base) ctx.baseBranch = base;
   if (env.RUNNER_OS) ctx.runnerOs = env.RUNNER_OS;
+  const patchBase = pr
+    ? (pr.base?.sha as string | undefined)
+    : event === 'push'
+      ? (payload.before as string | undefined)
+      : undefined;
+  // A push that creates a branch has `before` all zeros.
+  if (patchBase && /^[0-9a-f]{7,64}$/i.test(patchBase) && !/^0+$/.test(patchBase))
+    ctx.patchBase = patchBase;
   return ctx;
 }
 

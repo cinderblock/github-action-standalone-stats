@@ -1,4 +1,5 @@
 import * as core from '@actions/core';
+import { addedLines, type Diff } from './coverage/patch.js';
 
 export interface RepoRef {
   owner: string;
@@ -173,4 +174,55 @@ export function defaultPagesUrl(ref: RepoRef, path: string): string {
   if (ref.name.toLowerCase() === `${ref.owner.toLowerCase()}.github.io`)
     return `https://${ref.name}/${suffix}`;
   return `https://${ref.owner}.github.io/${ref.name}/${suffix}`;
+}
+
+/** The compare API lists at most this many files across its pages. */
+const COMPARE_FILE_CAP = 300;
+
+/**
+ * Lines added between `base` and `head` (three-dot: from their merge base),
+ * per file, from the compare API. Removed files are skipped; renamed files
+ * use their new name. Returns undefined if the comparison isn't available.
+ */
+export async function compareDiff(
+  ref: RepoRef,
+  base: string,
+  head: string,
+  opts: ApiOptions,
+): Promise<Diff | undefined> {
+  const files = new Map<string, Set<number>>();
+  let partial = false;
+  let seen = 0;
+  for (let page = 1; page <= 3; page++) {
+    const { status, body } = await api<{
+      files?: { filename: string; status: string; patch?: string; changes?: number }[];
+    }>(
+      'GET',
+      `/repos/${ref.owner}/${ref.name}/compare/${encodeURIComponent(base)}...${encodeURIComponent(head)}?per_page=100&page=${page}`,
+      undefined,
+      opts,
+    );
+    if (status !== 200) {
+      if (page === 1) {
+        core.info(`No diff for patch coverage (compare API status ${status})`);
+        return undefined;
+      }
+      partial = true;
+      break;
+    }
+    const list = body.files ?? [];
+    for (const f of list) {
+      seen++;
+      if (f.status === 'removed') continue;
+      if (f.patch === undefined) {
+        // Binary, or too large for the API to include.
+        if (f.changes) partial = true;
+        continue;
+      }
+      files.set(f.filename, addedLines(f.patch));
+    }
+    if (list.length < 100) break;
+    if (seen >= COMPARE_FILE_CAP) partial = true;
+  }
+  return { files, partial };
 }

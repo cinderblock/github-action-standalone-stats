@@ -12,6 +12,8 @@ import {
   type TestStatus,
   type Upload,
 } from '../model.js';
+import type { CoverageBuild } from './coverage.js';
+import type { CovTotals } from '../coverage/model.js';
 
 /** How many failures one run file keeps. The rest are counted, not listed. */
 export const FAILURE_CAP = 200;
@@ -72,6 +74,7 @@ export interface RecordContext {
   run: RunInfo;
   commit: CommitInfo;
   now?: Date;
+  coverage?: CoverageBuild;
 }
 
 export function buildRecord(
@@ -84,7 +87,7 @@ export function buildRecord(
     const t = emptyTotals();
     for (const tc of u.tests) addTest(t, tc);
     totals = sumTotals(totals, t);
-    return {
+    const summary: RunRecord['uploads'][number] = {
       key: u.key,
       label: u.label,
       dims: u.dims,
@@ -92,6 +95,9 @@ export function buildRecord(
       formats: [...new Set(u.sources.map(s => s.format))],
       tests: t,
     };
+    const cov = ctx.coverage?.perUpload.get(u.key);
+    if (cov) summary.coverage = cov;
+    return summary;
   });
 
   const failures: Failure[] = [];
@@ -130,6 +136,7 @@ export function buildRecord(
       failuresTruncated: failing > failures.length,
     },
   };
+  if (ctx.coverage) record.coverage = ctx.coverage.coverage;
   return { record, tests };
 }
 
@@ -145,6 +152,8 @@ export interface Comparison {
   /** Current minus base. Failure sets come from the capped failure lists,
    *  so with more than FAILURE_CAP failures they're partial. */
   delta: { total: number; failed: number; durationMs: number };
+  /** The base run's coverage, when both runs have some. */
+  coverage?: { base: CovTotals; baseRun: RunRecord };
 }
 
 export function compare(
@@ -161,7 +170,7 @@ export function compare(
     .sort();
   const c = current.tests.totals;
   const b = base.tests.totals;
-  return {
+  const cmp: Comparison = {
     baseKey: base.key,
     baseSha: base.commit.sha,
     newFailures,
@@ -173,4 +182,7 @@ export function compare(
       durationMs: c.durationMs - b.durationMs,
     },
   };
+  if (current.coverage && base.coverage)
+    cmp.coverage = { base: base.coverage.totals, baseRun: base };
+  return cmp;
 }

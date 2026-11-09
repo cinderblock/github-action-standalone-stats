@@ -2,6 +2,9 @@ import { parseFormat, parseList } from '../collect/gather.js';
 import { parseRecordMode, type RecordMode } from '../context.js';
 import { parseRepo } from '../github.js';
 import type { TestFormat } from '../model.js';
+import { parseComponents, type Component } from '../coverage/components.js';
+import type { CoverageFormat } from '../coverage/model.js';
+import { parseCoverageFormat } from '../coverage/read.js';
 import { DEFAULT_PREFIX } from '../upload.js';
 
 export interface PublishInputs {
@@ -15,6 +18,13 @@ export interface PublishInputs {
   record: RecordMode;
   tests: string[];
   testFormat?: TestFormat;
+  coverage: string[];
+  coverageFormat?: CoverageFormat;
+  components: Component[];
+  /** Raw `carryforward` input; parsed where it's used. */
+  carryforward: string;
+  detailWindow: number;
+  patchCoverage: boolean;
   flags: string[];
   id: string;
   matrix: string;
@@ -111,6 +121,17 @@ export function readPublishInputs(
     token,
     record: parseRecordMode(getInput('record')),
     tests: parseList(getInput('tests')).filter(Boolean),
+    coverage: parseList(getInput('coverage')),
+    components: parseComponents(getInput('components')),
+    carryforward: getInput('carryforward'),
+    detailWindow: parseIntInput(
+      getInput('detail-window'),
+      'detail-window',
+      50,
+      1,
+      10000,
+    ),
+    patchCoverage: parseBool(getInput('patch-coverage'), 'patch-coverage', true),
     flags: parseList(getInput('flags')),
     id: getInput('id').trim(),
     matrix: getInput('matrix'),
@@ -157,5 +178,7 @@ export function readPublishInputs(
   };
   const fmt = parseFormat(getInput('test-format'));
   if (fmt) inputs.testFormat = fmt;
+  const covFmt = parseCoverageFormat(getInput('coverage-format'));
+  if (covFmt) inputs.coverageFormat = covFmt;
   return inputs;
 }

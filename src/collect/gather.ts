@@ -4,6 +4,8 @@ import * as glob from '@actions/glob';
 import { SCHEMA, type TestFormat, type Upload } from '../model.js';
 import { toPosix } from '../paths.js';
 import { readTestPaths, TEST_FORMATS } from '../readers/index.js';
+import { encodeCoverage, type CoverageFormat } from '../coverage/model.js';
+import { readCoveragePaths } from '../coverage/read.js';
 
 export interface Identity {
   key: string;
@@ -82,16 +84,24 @@ export interface GatherOptions {
   identity: Identity;
   testPatterns: string[];
   testFormat?: TestFormat;
+  coveragePatterns?: string[];
+  coverageFormat?: CoverageFormat;
   flags: string[];
   workspace: string;
   attempt: number;
   now?: Date;
+  warn?: (message: string) => void;
 }
 
 export async function gather(o: GatherOptions): Promise<Upload> {
   const paths = await expand(o.testPatterns);
   const results = await readTestPaths(paths, o.workspace, o.testFormat);
-  return {
+  const covPaths = await expand(o.coveragePatterns ?? []);
+  const cov = covPaths.length
+    ? await readCoveragePaths(covPaths, o.workspace, o.coverageFormat)
+    : undefined;
+  for (const w of cov?.warnings ?? []) o.warn?.(w);
+  const upload: Upload = {
     schema: SCHEMA,
     key: o.identity.key,
     label: o.identity.label,
@@ -107,4 +117,10 @@ export async function gather(o: GatherOptions): Promise<Upload> {
     })),
     tests: results.flatMap(r => r.tests),
   };
+  if (cov?.sources.length)
+    upload.coverage = {
+      sources: cov.sources,
+      files: encodeCoverage(cov.coverage),
+    };
+  return upload;
 }
