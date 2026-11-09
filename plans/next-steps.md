@@ -131,6 +131,9 @@ Order of work, as Cameron set it:
   Seen in PR #24's first stats job (run 42357934887): the baseline read failed and was swallowed as
   "No baseline available". Fixed: empty `extraheader` values reset the list before ours, and git
   never runs in the workspace by default. Covered by a test against a local HTTP server.
+- **Runners evaluate `${{ }}` inside `action.yml` input descriptions.** A `${{ runner.os }}` example
+  in `collect`'s `flags` description failed every job: "Unrecognized named-value: 'runner'" (PR #25,
+  run 42576274257). Never put expressions in descriptions.
 - **The repo's `.gitignore` had `coverage/` unanchored**, which silently ignored `src/coverage/`
   and `test/fixtures/coverage/`. Now `/coverage/`.
 - **gcovr lists a line once per function on it** (Linux report: poller.cpp:33, :43,
