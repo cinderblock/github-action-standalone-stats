@@ -1,15 +1,16 @@
 # Standalone Stats
 
-Self-hosted test stats for GitHub Actions: merge results from every job in a
-run (a whole OS × version matrix), keep history on a branch of your own repo,
-and publish a dashboard and README badges with GitHub Pages. **No third-party
-service**, no extra secrets, no Java.
+Self-hosted test and coverage stats for GitHub Actions: merge results and
+coverage from every job in a run (a whole OS × version matrix), keep history
+on a branch of your own repo, and publish a dashboard and README badges with
+GitHub Pages. **No third-party service**, no extra secrets, no Java.
 
-Code coverage (lcov and Cobertura, merged across the matrix, with per-component
-and per-flag breakdowns) is the next milestone. See [Roadmap](#roadmap).
+Coverage is merged the way Codecov merges uploads, with per-flag and
+per-component breakdowns, carryforward and patch coverage on pull requests.
 
 [![CI](https://github.com/cinderblock/github-action-standalone-stats/actions/workflows/ci.yml/badge.svg)](https://github.com/cinderblock/github-action-standalone-stats/actions/workflows/ci.yml)
 [![tests](https://cinderblock.github.io/github-action-standalone-stats/stats/badges/tests.svg)](https://cinderblock.github.io/github-action-standalone-stats/stats/)
+[![coverage](https://cinderblock.github.io/github-action-standalone-stats/stats/badges/coverage.svg)](https://cinderblock.github.io/github-action-standalone-stats/stats/)
 
 > **Status:** pre-release. There are no tags yet, so pin a commit SHA if you
 > try it before `v1` is published.
@@ -20,15 +21,17 @@ and per-flag breakdowns) is the next milestone. See [Roadmap](#roadmap).
   automatically. That covers bun, node:test, jest, vitest, mocha, pytest,
   gtest, ctest, Surefire/Gradle, Go, .NET, Playwright and more, with each
   framework's own reporter.
+- Reads **lcov** and **Cobertura XML** coverage: nyc/istanbul, c8, bun,
+  llvm-cov, gcovr, OpenCppCoverage, coverage.py and more.
 - In a matrix, each job runs a small `collect` step. One fan-in `publish` job
   merges them all, so jobs never race each other to push.
 - Stores each run as a small JSON file on a branch (default `gh-pages`, under
   `stats/`), plus indexes the dashboard reads. No raw report dumps.
 - Pull requests get a **job summary** comparing against the target branch:
-  new failures, fixed tests, per-job counts. That works for fork PRs too,
-  because it doesn't need write access.
-- Publishes a dashboard (trend, latest failures, flaky tests, recent runs) and
-  an SVG badge.
+  new failures, fixed tests, per-job counts, the coverage change and patch
+  coverage. That works for fork PRs too, because it doesn't need write access.
+- Publishes a dashboard (trend, coverage, latest failures, flaky tests, recent
+  runs) and SVG badges: tests, coverage, and one per component and flag.
 
 ## Quick start: one job
 
@@ -45,13 +48,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: npm ci
-      - run: npx jest --ci --reporters=default --reporters=jest-junit
+      - run: npx jest --ci --coverage --coverageReporters=lcov --reporters=default --reporters=jest-junit
 
       - name: Publish stats
         if: ${{ !cancelled() }} # publish failures too
         uses: cinderblock/github-action-standalone-stats@<sha>
         with:
           tests: junit.xml
+          coverage: coverage/lcov.info
 ```
 
 Then turn on Pages: **Settings → Pages → Deploy from a branch → `gh-pages` /
@@ -76,11 +80,13 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - run: npm ci
-      - run: npm test -- --reporter mocha-junit-reporter
+      - run: npx c8 --reporter=lcov npm test -- --reporter mocha-junit-reporter
       - uses: cinderblock/github-action-standalone-stats/collect@<sha>
         if: ${{ !cancelled() }}
         with:
           tests: test-results.xml
+          coverage: coverage/lcov.info
+          flags: ${{ runner.os }}
 
   stats:
     needs: test
@@ -101,6 +107,58 @@ same test gets the same id on every OS. If you re-run failed jobs, the new
 attempt's results replace the old ones instead of being added to them.
 
 The publish job doesn't need a checkout.
+
+## Coverage
+
+Give `collect` (or the publish step, in a single job) your coverage reports
+with `coverage:`. lcov and Cobertura are detected from their content, and one
+job can upload several: lcov for a native addon's TypeScript and Cobertura for
+its C++, say.
+
+**Merging.** Every job's coverage is merged the way Codecov merges uploads. A
+line is coverable if any job says so (the OSes really do disagree: each
+compiler reports a different set of coverable lines for the same file), hits add up,
+and a line counts as covered if any job ran it. lcov branch records keep their
+identities, so branches taken on different OSes add up correctly. Cobertura
+only has counts per line (`condition-coverage="50% (1/2)"`), so for it the
+best count wins. Line coverage is covered lines over coverable lines, the
+number the tools themselves report. Unlike Codecov, partly covered lines
+aren't counted as misses.
+
+**Paths** are made repo-relative in the job that wrote the report, against
+its own workspace and the report's `<source>` entries. On Windows,
+OpenCppCoverage's `<source>D:</source>` plus `a\repo\repo\src\x.cpp`, nyc's
+`src\x.ts` and gcovr's `src/x.cpp` on Linux all end up as `src/…`. Files
+outside the workspace (system headers, dependencies) are dropped and counted
+in the log.
+
+**Flags** label a job's uploads (`flags: ${{ runner.os }}, cpp`). Each flag
+gets its own totals, trend and badge.
+
+**Carryforward.** When a run skips some jobs (path filters skip the Windows
+build, say), set `carryforward: true` or name the flags, and the missing
+flags' coverage comes from the last stored run instead of vanishing. The
+summary says which flags were carried.
+
+**Components** group files by path. With no configuration there's one per
+language, by file extension, so a TypeScript + C++ repo splits on its own. Or
+define them on the publish step:
+
+```yml
+with:
+  components: |
+    JavaScript: lib/**
+    Native: src/**, binding.gyp
+```
+
+A file can be in several components. `**` crosses directories, and a glob
+without `/` matches file names anywhere (`*.h`).
+
+**Patch coverage.** The summary shows how many of the coverable lines a pull
+request changed actually ran, and lists changed files with missed lines. It
+diffs the PR against its base with the compare API; pushes diff against the
+previous tip. The API lists at most 300 files, so past that the number is
+marked incomplete.
 
 ## Which runs are recorded
 
@@ -148,15 +206,18 @@ your Pages site serves.
 ```
 stats/
   index.html                       dashboard
-  badges/tests.svg
+  badges/tests.svg, coverage.svg   and coverage-<component>.svg, flag-<flag>.svg
   data/meta.json                   schema version, generator
   data/index.json                  one row per stored run (charts, run list)
   data/tests.json                  per-test history for the last N runs (flaky/slow)
   data/runs/YYYY/MM/<run>-<attempt>.json   one file per stored run
+  data/detail/<run>-<attempt>.json         line coverage, newest 50 runs only
 ```
 
-A run file is a few KB: totals, per-job counts, and the failing tests with
-their messages (passing tests aren't listed individually there). Note that
+A run file is a few KB: totals, per-job counts, coverage totals by flag and
+component, and the failing tests with their messages (passing tests aren't
+listed individually there). Line-level coverage is the bulky part, so it's
+only kept for the newest `detail-window` runs. Note that
 `git clone` fetches every branch by default, so the stats branch ships with
 full clones of your repo. That's why the data is kept compact.
 
@@ -176,7 +237,13 @@ full clones of your repo. That's why the data is kept compact.
 | ------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------- |
 | `tests`                               |                         | Result files or dirs to read in this job (globs, one per line). Single-job setups. |
 | `test-format`                         | `auto`                  | Force `junit`, `ctrf` or `allure`.                                                  |
-| `flags`                               |                         | Labels for the results read via `tests`.                                            |
+| `coverage`                            |                         | Coverage reports to read in this job (globs). Single-job setups.                    |
+| `coverage-format`                     | `auto`                  | Force `lcov` or `cobertura`.                                                        |
+| `flags`                               |                         | Labels for the results and coverage read in this job.                               |
+| `components`                          | one per language        | `Name: glob, glob` per line. See [Coverage](#coverage).                             |
+| `carryforward`                        | `false`                 | `true`, or the flags to carry forward when missing.                                 |
+| `patch-coverage`                      | `true`                  | Coverage of the changed lines, on PRs and pushes.                                   |
+| `detail-window`                       | `50`                    | Runs whose line-level coverage is kept.                                             |
 | `download-artifacts`                  | `true`                  | Merge in the `collect` uploads from this run.                                       |
 | `repo`                                | this repo               | Repo holding the stats branch.                                                      |
 | `branch`                              | `gh-pages`              | Stats branch.                                                                       |
@@ -193,9 +260,9 @@ full clones of your repo. That's why the data is kept compact.
 | `commit-message`                      | repo, commit and run id | Commit message.                                                                     |
 | `artifact-prefix`                     | `standalone-stats-`     | Must match `collect`'s.                                                             |
 
-`collect` takes `tests` (required), `test-format`, `flags`, `id` (only if one
-job runs `collect` twice), `if-no-files-found` (`warn`), `artifact-prefix` and
-`retention-days` (`7`).
+`collect` takes `tests` and/or `coverage` (globs), `test-format`,
+`coverage-format`, `flags`, `id` (only if one job runs `collect` twice),
+`if-no-files-found` (`warn`), `artifact-prefix` and `retention-days` (`7`).
 
 ## Outputs
 
@@ -208,18 +275,16 @@ job runs `collect` twice), `if-no-files-found` (`warn`), `artifact-prefix` and
 | `run-key`                                                   | `<run id>-<attempt>`.                               |
 | `tests-total`, `tests-passed`, `tests-failed`, `tests-skipped` | Counts, summed over jobs.                        |
 | `new-failures`                                              | Tests failing now that weren't in the baseline run. |
+| `coverage-lines`, `coverage-branches`, `coverage-patch`     | Percent, two decimals; empty when there's none.     |
+| `coverage-badge-url`, `coverage-badge-markdown`             | Coverage badge, and README Markdown for it.         |
 
 ## Roadmap
 
-1. **Coverage.** lcov and Cobertura (gcovr, OpenCppCoverage, coverage.py,
-   JaCoCo), merged across the matrix the way Codecov merges uploads: flags per
-   upload, components by path (one per language by default), carryforward,
-   patch coverage on PRs, coverage badges.
-2. **A real dashboard.** Coverage tree and per-line view, trends per flag and
+1. **A real dashboard.** Coverage tree and per-line view, trends per flag and
    component, test history, run comparison.
-3. **PR comments**, including from forks (a `workflow_run` companion), and
-   thresholds.
-4. More inputs: TRX, TAP, Istanbul JSON, LLVM JSON.
+2. **PR comments**, including from forks (a `workflow_run` companion), and
+   coverage thresholds.
+3. More inputs: TRX, TAP, JaCoCo XML, Istanbul JSON, LLVM JSON.
 
 ## Development
 

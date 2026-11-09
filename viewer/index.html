@@ -149,6 +149,20 @@
         aria-label="Failing results per run"
       ></svg>
       <div class="muted" id="trend-note"></div>
+      <section id="coverage" hidden>
+        <h2>Coverage</h2>
+        <div class="tiles" id="cov-tiles"></div>
+        <svg
+          class="trend"
+          id="cov-trend"
+          viewBox="0 0 1000 80"
+          preserveAspectRatio="none"
+          role="img"
+          aria-label="Line coverage per run"
+        ></svg>
+        <div class="muted" id="cov-note"></div>
+        <div class="scroll"><table id="cov-breakdown"></table></div>
+      </section>
       <h2>Latest failures</h2>
       <div id="failures" class="muted">None.</div>
       <h2>Flaky tests</h2>
@@ -252,6 +266,56 @@
           .join('');
         $('trend-note').textContent =
           `${recent.length} run${recent.length === 1 ? '' : 's'}; green passed, red failing.`;
+
+        // Coverage: tiles for the newest run with coverage, a line-% trend,
+        // and the per-component / per-flag breakdown.
+        const covRuns = runs.filter(r => r.coverage);
+        if (covRuns.length) {
+          $('coverage').hidden = false;
+          const pctOf = ([h, t]) => (t ? (100 * h) / t : undefined);
+          const fmtPct = p =>
+            p === undefined ? 'n/a' : `${(Math.floor(p * 100) / 100).toFixed(2)}%`;
+          const c = covRuns[covRuns.length - 1].coverage;
+          $('cov-tiles').innerHTML = [
+            ['Lines', c.l],
+            ['Branches', c.b],
+            ...(c.p ? [['Patch', c.p]] : []),
+          ]
+            .map(
+              ([k, v]) =>
+                `<div class="tile"><span class="muted">${k}</span><b title="${v[0]} of ${v[1]}">${fmtPct(pctOf(v))}</b></div>`,
+            )
+            .join('');
+          const cr = covRuns.slice(-100);
+          const ps = cr.map(r => pctOf(r.coverage.l) ?? 0);
+          const lo = Math.max(0, Math.floor(Math.min(...ps) / 10) * 10);
+          const hi = Math.min(100, Math.ceil(Math.max(...ps) / 10) * 10 || 100);
+          const y = p => 78 - (76 * (p - lo)) / Math.max(1, hi - lo);
+          const x = i => (cr.length === 1 ? 500 : (1000 * i) / (cr.length - 1));
+          $('cov-trend').innerHTML =
+            `<polyline fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke" points="${ps.map((p, i) => `${x(i)},${y(p)}`).join(' ')}"/>` +
+            ps
+              .map(
+                (p, i) =>
+                  `<circle cx="${x(i)}" cy="${y(p)}" r="3" fill="var(--accent)" vector-effect="non-scaling-stroke"><title>${esc(cr[i].sha.slice(0, 7))}: ${fmtPct(p)}</title></circle>`,
+              )
+              .join('');
+          $('cov-note').textContent =
+            `Line coverage over ${cr.length} run${cr.length === 1 ? '' : 's'} (axis ${lo}–${hi}%).`;
+          const rows = [
+            ...Object.entries(c.c ?? {}).map(([k, v]) => ['Component', k, v]),
+            ...Object.entries(c.f ?? {}).map(([k, v]) => ['Flag', k, v]),
+          ];
+          if (rows.length)
+            $('cov-breakdown').innerHTML =
+              '<tr><th></th><th>Name</th><th class="n">Lines</th><th class="n">Covered</th></tr>' +
+              rows
+                .map(
+                  ([kind, k, v]) =>
+                    `<tr><td class="muted">${kind}</td><td>${esc(k)}</td><td class="n">${fmtPct(pctOf(v))}</td><td class="n">${v[0]} / ${v[1]}</td></tr>`,
+                )
+                .join('');
+        }
 
         try {
           const rec = await get(last.path);
