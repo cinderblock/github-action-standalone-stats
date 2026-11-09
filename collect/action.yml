@@ -30,7 +30,7 @@ inputs:
   flags:
     description: >-
       Labels for this job's results and coverage (comma or newline
-      separated), e.g. `${{ runner.os }}, cpp`. Coverage is broken down and
+      separated), e.g. the runner OS and `cpp`. Coverage is broken down and
       carried forward per flag.
     default: ''
   id:
