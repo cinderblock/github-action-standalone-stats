@@ -61,9 +61,9 @@ Order of work, as Cameron set it:
 2. ✅ Phase 1, foundations: `collect` + `publish` split, compact data model, single
    branch under `stats/`, retry-safe push, test readers (JUnit, CTRF, Allure), badges, job summary,
    Allure generation removed, dogfood on this repo's CI.
-3. ▶ **(current)** Phase 2, coverage: lcov + Cobertura, path normalization, Codecov-style merge, flags,
+3. ✅ Phase 2, coverage: lcov + Cobertura, path normalization, Codecov-style merge, flags,
    components, carryforward, patch coverage, coverage badges.
-4. Phase 3, viewer SPA.
+4. ▶ **(current)** Phase 3, viewer SPA.
 5. Phase 4, PR comments (`workflow_run` companion), thresholds.
 6. Release as a set with the two sibling actions (needs a yes).
 
@@ -167,8 +167,11 @@ Order of work, as Cameron set it:
 - [x] Phase 2 coverage engine (`badd6ab`, branch `phase-2`): lcov + Cobertura readers, path
   resolution, merge, flags, components, carryforward, patch coverage, detail files, badges,
   summary section, dashboard section, README, dogfood in CI
-- [ ] Phase 2 PR green on 3 OSes; PR summary shows coverage (compare-only on a PR)
-- [ ] Phase 2 merged (needs Cameron's yes); first master run stores coverage + badge
+- [x] Phase 2 PR #25 green on 3 OSes (after the description fix); squash-merged as `1b9ab71`
+- [x] First master run with coverage (run 42580049133, Nov 8 11:08 PM PST (07:08Z Nov 9)):
+  `gh-pages@c658d21`, detail file, `coverage.svg` (87.4%), TypeScript component and
+  Linux/Windows/macOS flag badges live on Pages; push patch coverage 749/832
+- [ ] Phase 3: dashboard SPA (React 19 + Vite, built into `dist/viewer` at dev time)
 
 ## Open questions for the user
 
