@@ -58,10 +58,10 @@ Order of work, as Cameron set it:
 ## Plan / steps
 
 1. ✅ Research and recommendation: `plans/design-recommendation.md`. Approved 2026-11-07.
-2. ▶ **(current)** Phase 1, foundations: `collect` + `publish` split, compact data model, single
+2. ✅ Phase 1, foundations: `collect` + `publish` split, compact data model, single
    branch under `stats/`, retry-safe push, test readers (JUnit, CTRF, Allure), badges, job summary,
    Allure generation removed, dogfood on this repo's CI.
-3. Phase 2, coverage: lcov + Cobertura, path normalization, Codecov-style merge, flags,
+3. ▶ **(current)** Phase 2, coverage: lcov + Cobertura, path normalization, Codecov-style merge, flags,
    components, carryforward, patch coverage, coverage badges.
 4. Phase 3, viewer SPA.
 5. Phase 4, PR comments (`workflow_run` companion), thresholds.
@@ -116,18 +116,20 @@ Order of work, as Cameron set it:
 - [x] `gh-pages` cleanup: prototype `allure-report/`, `vitest/`, `dashboard.svg` removed, root redirects
   to `stats/` (`555bf23`; old content stays in `archive/gh-pages`)
 - [x] Fixed duplicate Authorization header (see findings)
-- [ ] PR #24 green after the auth fix, then merge (needs Cameron's yes) so master pushes record
-- [ ] First recorded run on master: check `stats/` on Pages, badge, dashboard
+- [x] PR #24 green after the auth fix; squash-merged as `e4acd24` with Cameron's yes (2026-11-08)
+- [x] First recorded run on master (run 42572413395, Nov 8 10:21 PM PST (06:21Z Nov 9)): pushed on
+  attempt 1 as `gh-pages@5a4b3bd`; Pages serves `stats/`, `data/index.json` and the badge
+  ("tests: 150 passing" = 50 tests × 3 OSes)
 - [ ] Phase 2 coverage
 
 ## Open questions for the user
 
-1. **Viewer stack:** React 19 + Vite, like `ssg-base`, built into `dist/viewer/` at dev time, with
-   nothing built at publish time (recommended). Or Preact for a smaller bundle?
-2. **Own reporter plugins:** recommended *not yet*. CTRF already has reporters for jest, mocha,
-   vitest, playwright, cypress, pytest, Go, .NET, Rust and more, and every gap I know of (bun test,
-   node:test, gtest, ctest) emits JUnit. We read CTRF, JUnit and Allure natively. Write our own
-   reporter only where both lose data we need.
+1. **Badge count:** the tests badge sums results across matrix jobs (150 = 50 × 3 OSes). Show
+   unique tests instead ("50 passing · 3 jobs")? Recommended: unique tests, jobs in the tooltip.
+
+Answered with a plain "yes" on 2026-11-08 alongside the merge, taken as accepting both
+recommendations (Cameron may correct): viewer is React 19 + Vite built at dev time; no own
+reporter plugins yet (CTRF + JUnit cover the gaps).
 
 ## Things not to do
 
