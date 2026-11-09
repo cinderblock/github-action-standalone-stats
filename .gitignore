@@ -1,5 +1,5 @@
 node_modules/
-coverage/
+/coverage/
 *.tgz
 .DS_Store
 # Note: dist/ IS committed — it's the bundled artifact GitHub runs.

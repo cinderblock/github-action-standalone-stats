@@ -12,6 +12,7 @@ import {
   type Remote,
 } from '../git.js';
 import {
+  compareDiff,
   createRepo,
   defaultPagesUrl,
   enablePages,
@@ -19,14 +20,34 @@ import {
   getRepo,
   parseRepo,
 } from '../github.js';
-import type { RunRecord, Upload } from '../model.js';
+import type { DetailFile, RunRecord, Upload } from '../model.js';
+import type { Diff } from '../coverage/patch.js';
+import { pct } from '../coverage/model.js';
+import { buildCoverage, parseCarryforward } from './coverage.js';
 import { dedupe, downloadUploads } from '../upload.js';
 import { GENERATOR } from '../version.js';
 import { readPublishInputs, type PublishInputs } from './inputs.js';
 import { buildRecord, compare } from './merge.js';
 import { checkPrivacy } from './privacy.js';
-import { applyRun, readBaseline } from './store.js';
+import { applyRun, readBaseline, readDetail } from './store.js';
 import { renderSummary } from './summary.js';
+
+interface Baseline {
+  record: RunRecord;
+  detail?: DetailFile;
+}
+
+async function loadBaseline(
+  root: string,
+  repo: string,
+  branch: string,
+  excludeRunId: number,
+): Promise<Baseline | undefined> {
+  const record = await readBaseline(root, repo, branch, excludeRunId);
+  if (!record) return undefined;
+  const detail = await readDetail(root, record);
+  return detail ? { record, detail } : { record };
+}
 
 const viewerDir = () => fileURLToPath(new URL('../viewer/', import.meta.url));
 
@@ -35,7 +56,7 @@ async function collectUploads(
   ctx: Context,
 ): Promise<Upload[]> {
   const uploads: Upload[] = [];
-  if (inputs.tests.length) {
+  if (inputs.tests.length || inputs.coverage.length) {
     const id = identity(
       ctx.job,
       parseMatrix(inputs.matrix),
@@ -46,12 +67,21 @@ async function collectUploads(
       identity: id,
       testPatterns: inputs.tests,
       ...(inputs.testFormat ? { testFormat: inputs.testFormat } : {}),
+      coveragePatterns: inputs.coverage,
+      ...(inputs.coverageFormat
+        ? { coverageFormat: inputs.coverageFormat }
+        : {}),
+      warn: m => core.warning(m),
       flags: inputs.flags,
       workspace: ctx.workspace,
       attempt: ctx.run.attempt,
     });
-    if (!local.sources.length)
+    if (inputs.tests.length && !local.sources.length)
       core.warning(`No test results matched: ${inputs.tests.join(', ')}`);
+    if (inputs.coverage.length && !local.coverage)
+      core.warning(
+        `No coverage reports matched: ${inputs.coverage.join(', ')}`,
+      );
     uploads.push(local);
   }
   if (inputs.downloadArtifacts) {
@@ -82,7 +112,7 @@ async function readOnlyBaseline(
     if (!(await remoteHasBranch(remote, inputs.branch))) return undefined;
     const { dir } = await checkout(remote, inputs.branch);
     try {
-      return await readBaseline(
+      return await loadBaseline(
         join(dir, inputs.path),
         inputs.repo,
         branch,
@@ -117,18 +147,53 @@ async function run(): Promise<void> {
   const uploads = await collectUploads(inputs, ctx);
   if (!uploads.length)
     core.warning(
-      'No test results: nothing matched `tests`, and no collect artifacts were found in this run.',
+      'No results: nothing matched `tests` or `coverage`, and no collect artifacts were found in this run.',
     );
-  const { record, tests } = buildRecord(uploads, {
-    run: ctx.run,
-    commit: ctx.commit,
-  });
+
+  // Patch coverage: the lines this PR (or push) changed.
+  let diff: { diff: Diff; base: string } | undefined;
+  if (inputs.patchCoverage && ctx.patchBase && uploads.some(u => u.coverage)) {
+    try {
+      const d = await compareDiff(
+        parseRepo(ctx.repo),
+        ctx.patchBase,
+        ctx.commit.sha,
+        api,
+      );
+      if (d) diff = { diff: d, base: ctx.patchBase };
+    } catch (err) {
+      core.warning(`Patch coverage skipped: ${(err as Error).message}`);
+    }
+  }
+
+  // The record depends on the baseline (carried-forward coverage), so it's
+  // built after reading it, and rebuilt if a push race means a new clone.
+  const carryforward = parseCarryforward(inputs.carryforward);
+  const build = (base?: Baseline) => {
+    const cov = buildCoverage(uploads, {
+      key: `${ctx.run.id}-${ctx.run.attempt}`,
+      sha: ctx.commit.sha,
+      components: inputs.components,
+      carryforward,
+      ...(base?.detail ? { baselineDetail: base.detail } : {}),
+      ...(diff ? { diff } : {}),
+    });
+    return {
+      ...buildRecord(uploads, {
+        run: ctx.run,
+        commit: ctx.commit,
+        ...(cov ? { coverage: cov } : {}),
+      }),
+      cov,
+    };
+  };
+  let built = build();
 
   // Which history do we compare against: the PR's target, else the default.
   const baseBranch = ctx.baseBranch ?? ctx.defaultBranch;
   let recorded = false;
   let note: string | undefined;
-  let baseline: RunRecord | undefined;
+  let baseline: Baseline | undefined;
   let siteUrl: string | undefined;
 
   let wantRecord = shouldRecord(inputs.record, ctx) && uploads.length > 0;
@@ -191,11 +256,14 @@ async function run(): Promise<void> {
         // need and slows every Pages build.
         if (fresh) await writeFile(join(dir, '.nojekyll'), '');
         baseline = baseBranch
-          ? await readBaseline(root, inputs.repo, baseBranch, ctx.run.id)
+          ? await loadBaseline(root, inputs.repo, baseBranch, ctx.run.id)
           : undefined;
-        await applyRun(root, record, tests, {
+        built = build(baseline);
+        await applyRun(root, built.record, built.tests, {
           repo: ctx.repo,
           window: inputs.historyWindow,
+          detailWindow: inputs.detailWindow,
+          ...(built.cov ? { detail: built.cov.detail } : {}),
           ...(inputs.viewer && existsSync(viewerDir())
             ? { viewerDir: viewerDir() }
             : {}),
@@ -229,15 +297,22 @@ async function run(): Promise<void> {
     }
   } else if (baseBranch) {
     baseline = await readOnlyBaseline(remote, inputs, ctx, baseBranch);
+    built = build(baseline);
   }
 
-  const cmp = baseline ? compare(record, tests, baseline) : undefined;
+  const { record, tests } = built;
+  if (record.coverage?.carriedForward.length)
+    core.info(
+      `Carried forward from the baseline: ${record.coverage.carriedForward.join(', ')}`,
+    );
+  const cmp = baseline ? compare(record, tests, baseline.record) : undefined;
   publishOutputs(record, cmp?.newFailures.length ?? 0, siteUrl, recorded);
 
   const badgeUrl = `${siteUrl}badges/tests.svg`;
   const summaryLinks = {
     siteUrl,
     badgeUrl,
+    coverageBadgeUrl: `${siteUrl}badges/coverage.svg`,
     recorded,
     ...(note ? { note } : {}),
   };
@@ -266,6 +341,18 @@ function publishOutputs(
   core.setOutput('tests-failed', String(t.failed + t.errored));
   core.setOutput('tests-skipped', String(t.skipped));
   core.setOutput('new-failures', String(newFailures));
+  const cov = record.coverage;
+  const fmt = (r?: { hit: number; total: number }) =>
+    r ? (pct(r)?.toFixed(2) ?? '') : '';
+  core.setOutput('coverage-lines', fmt(cov?.totals.lines));
+  core.setOutput('coverage-branches', fmt(cov?.totals.branches));
+  core.setOutput('coverage-patch', fmt(cov?.patch));
+  const covBadge = `${siteUrl}badges/coverage.svg`;
+  core.setOutput('coverage-badge-url', cov ? covBadge : '');
+  core.setOutput(
+    'coverage-badge-markdown',
+    cov ? `[![coverage](${covBadge})](${siteUrl})` : '',
+  );
 }
 
 run().catch(err => {

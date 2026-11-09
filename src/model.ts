@@ -9,6 +9,10 @@
  *    `schema`, so the viewer can refuse data it doesn't understand.
  */
 
+import type { CoverageSource } from './coverage/read.js';
+import type { CoverageFileData, CovTotals, Ratio } from './coverage/model.js';
+import type { PatchFile } from './coverage/patch.js';
+
 export const SCHEMA = 1;
 
 export type TestStatus = 'passed' | 'failed' | 'errored' | 'skipped' | 'other';
@@ -85,6 +89,11 @@ export interface Upload {
   createdAt: string;
   sources: SourceFile[];
   tests: TestCase[];
+  /** Coverage read in this job, paths already workspace-relative. */
+  coverage?: {
+    sources: CoverageSource[];
+    files: CoverageFileData[];
+  };
 }
 
 export interface CommitInfo {
@@ -110,6 +119,7 @@ export interface UploadSummary {
   flags: string[];
   formats: TestFormat[];
   tests: TestTotals;
+  coverage?: CovTotals;
 }
 
 export interface Failure {
@@ -141,6 +151,43 @@ export interface RunRecord {
     /** True if `failures` was capped. */
     failuresTruncated: boolean;
   };
+  coverage?: RunCoverage;
+}
+
+export interface RunCoverage {
+  /** Every session merged, carried-forward ones included. */
+  totals: CovTotals;
+  flags: Record<string, CovTotals & { carried?: true }>;
+  components: Record<string, CovTotals>;
+  /** Flags whose coverage came from the baseline, not this run. */
+  carriedForward: string[];
+  patch?: Ratio & {
+    base: string;
+    partial: boolean;
+    /** Worst first, capped. */
+    files: PatchFile[];
+  };
+  /** Line detail, relative to the stats dir. Pruned for old runs. */
+  detail: string;
+}
+
+/** `data/detail/<runKey>.json`: line-level coverage, grouped by flag set. */
+export interface DetailFile {
+  schema: typeof SCHEMA;
+  key: string;
+  sha: string;
+  groups: { flags: string[]; files: CoverageFileData[] }[];
+}
+
+/** `[hit, total]`, compact for the index. */
+export type Pair = [number, number];
+
+export interface IndexCoverage {
+  l: Pair;
+  b: Pair;
+  c?: Record<string, Pair>;
+  f?: Record<string, Pair>;
+  p?: Pair;
 }
 
 /** One row per stored run in `data/index.json`. */
@@ -155,6 +202,7 @@ export interface IndexEntry {
   unique: number;
   flaky: number;
   path: string;
+  coverage?: IndexCoverage;
 }
 
 export interface IndexFile {

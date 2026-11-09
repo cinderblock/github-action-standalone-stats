@@ -1,7 +1,8 @@
 name: Standalone Stats - collect
 description: >-
-  Read this job's test results, normalize them, and upload them for the
-  standalone-stats publish step to merge. Use one per matrix job.
+  Read this job's test results and coverage, normalize their paths, and
+  upload them for the standalone-stats publish step to merge. Use one per
+  matrix job.
 author: Cameron Tacklind <cameron@tacklind.com>
 branding:
   icon: upload
@@ -11,13 +12,26 @@ inputs:
   tests:
     description: >-
       Test result files or directories (globs, one per line). JUnit XML, CTRF
-      JSON and Allure results are detected automatically.
-    required: true
+      JSON and Allure results are detected automatically. Set this,
+      `coverage`, or both.
+    default: ''
   test-format:
     description: Force a format (junit, ctrf, allure). Default auto.
     default: auto
+  coverage:
+    description: >-
+      Coverage reports (globs, one per line). lcov and Cobertura XML (gcovr,
+      OpenCppCoverage, coverage.py, istanbul) are detected automatically.
+      Paths are made relative to this job's workspace.
+    default: ''
+  coverage-format:
+    description: Force a coverage format (lcov, cobertura). Default auto.
+    default: auto
   flags:
-    description: Labels for this job's results (comma or newline separated), e.g. `cpp, loopback`.
+    description: >-
+      Labels for this job's results and coverage (comma or newline
+      separated), e.g. the runner OS and `cpp`. Coverage is broken down and
+      carried forward per flag.
     default: ''
   id:
     description: Extra identity, only needed when one job runs collect more than once.
@@ -26,7 +40,7 @@ inputs:
     description: Matrix values of this job. Leave the default; it keeps matrix legs apart.
     default: ${{ toJSON(matrix) }}
   if-no-files-found:
-    description: '`warn`, `error` or `ignore` when `tests` matches nothing.'
+    description: '`warn`, `error` or `ignore` when `tests` or `coverage` matches nothing.'
     default: warn
   artifact-prefix:
     description: Artifact name prefix shared with the publish step.
@@ -44,6 +58,8 @@ outputs:
     description: Test results read.
   tests-failed:
     description: Failed or errored results.
+  coverage-lines:
+    description: Line coverage of this job's reports, percent (empty if none).
 
 runs:
   using: node24

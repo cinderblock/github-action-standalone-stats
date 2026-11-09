@@ -2,8 +2,9 @@
 
 name: Standalone Stats
 description: >-
-  Self-hosted test (and soon coverage) stats: merges results from every job
-  in a run, keeps history on a branch of your repo, and publishes a
+  Self-hosted test and coverage stats: merges results from every job in a
+  run (Codecov-style, with flags, components, carryforward and patch
+  coverage), keeps history on a branch of your repo, and publishes a
   dashboard and badges with GitHub Pages. No third-party service.
 author: Cameron Tacklind <cameron@tacklind.com>
 branding:
@@ -22,8 +23,17 @@ inputs:
   test-format:
     description: Force a format for `tests` (junit, ctrf, allure). Default auto.
     default: auto
+  coverage:
+    description: >-
+      Coverage reports (globs, one per line) to read in this job, for
+      single-job workflows. lcov and Cobertura XML are detected
+      automatically. In a matrix, give them to `collect` instead.
+    default: ''
+  coverage-format:
+    description: Force a format for `coverage` (lcov, cobertura). Default auto.
+    default: auto
   flags:
-    description: Labels for the results read via `tests` (comma or newline separated).
+    description: Labels for the results and coverage read via `tests`/`coverage` (comma or newline separated).
     default: ''
   id:
     description: Extra identity for the results read via `tests`, if this job publishes more than one set.
@@ -37,6 +47,27 @@ inputs:
   artifact-prefix:
     description: Artifact name prefix shared with `collect`.
     default: standalone-stats-
+
+  # ---- Coverage ----
+  components:
+    description: >-
+      Named groups of files, one `Name: glob, glob` per line (`**` crosses
+      directories; a glob without `/` matches file names anywhere). A file
+      can be in several. Default: one component per language.
+    default: ''
+  carryforward:
+    description: >-
+      Flags whose coverage is carried forward from the baseline when no job
+      in this run uploaded them: flag names, or `true` for every flag.
+    default: 'false'
+  patch-coverage:
+    description: >-
+      Report coverage of the lines a PR (or push) changed, using the compare
+      API.
+    default: 'true'
+  detail-window:
+    description: Runs whose line-level coverage is kept (older runs keep totals only).
+    default: '50'
 
   # ---- Where ----
   repo:
@@ -125,6 +156,16 @@ outputs:
     description: Skipped results.
   new-failures:
     description: Tests failing now that weren't failing in the baseline run.
+  coverage-lines:
+    description: Line coverage, percent with two decimals (empty without coverage).
+  coverage-branches:
+    description: Branch coverage, percent (empty without branch data).
+  coverage-patch:
+    description: Patch coverage, percent (empty when not computed or nothing coverable changed).
+  coverage-badge-url:
+    description: URL of the coverage badge (empty without coverage).
+  coverage-badge-markdown:
+    description: Markdown for a README coverage badge.
 
 runs:
   using: node24

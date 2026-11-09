@@ -67,6 +67,38 @@ Order of work, as Cameron set it:
 5. Phase 4, PR comments (`workflow_run` companion), thresholds.
 6. Release as a set with the two sibling actions (needs a yes).
 
+### Phase 2 design (decided while building, 2026-11-08)
+
+- **Inputs:** `coverage` (globs) + `coverage-format` (`auto`/`lcov`/`cobertura`) on both `collect`
+  and publish. `collect` needs `tests` or `coverage` (either). JaCoCo XML isn't Cobertura; error
+  with a hint, convert first.
+- **In memory:** per file, per line `{hits, br?}` where `br` is a `0/1` string, one char per
+  branch. lcov `BRDA` gives real identities (ordered as listed). Cobertura's
+  `condition-coverage="50% (1/2)"` has counts only, encoded front-filled (`10`), so OR-merging
+  front-filled strings reproduces Codecov's max-covered/max-total rule.
+- **Merge across sessions:** coverable lines = union; hits summed; branches OR'd, padded to the
+  longest. Line % = lines with hits > 0 / coverable lines (what the tools report). Partials are
+  not counted as misses (Codecov does; that confuses people).
+- **Paths:** resolved in `collect` against its own workspace and Cobertura `<source>`s, preferring
+  a candidate that exists on disk. Absolute paths outside the workspace (system headers) are
+  dropped and counted. If a report resolves nothing inside the workspace but has relative names,
+  keep them as-is with a warning.
+- **Groups:** stored line detail is grouped by an upload's flag set. Totals come from merging all
+  groups. **Carryforward** (`carryforward` input: flag list or `true`): a baseline group is carried
+  in when none of its flags is present this run and all of them are carryforward-enabled.
+- **Components:** publish input `components`, one `Name: glob, glob` per line; a file may be in
+  several. Globs without `/` match the basename. Default (empty): one per language by extension.
+- **Patch coverage:** PRs diff `pull_request.base.sha...head` (merge-base) and pushes diff
+  `before...sha`, via the compare API. Added lines that are coverable count; hit/coverable is the
+  patch %. The compare API caps files (300) and omits huge patches; marked `partial`.
+- **Storage:** the run record gets `coverage` (totals, per flag, per component, per upload, patch).
+  Line detail goes in `data/detail/<runKey>.json` and is kept for the newest `detail-window` (50)
+  runs only. `index.json` rows get compact `[hit,total]` pairs. Schema stays 1 (fields optional,
+  nothing released yet).
+- **Badges:** `coverage.svg`, `coverage-<component>.svg`, `flag-<flag>.svg`.
+- Deferred: thresholds/checks (phase 4), function coverage, a path-prefix fix-up input for
+  monorepos.
+
 ## Findings / gotchas
 
 - **The current design double-counts.** `main.ts` unions every run's raw `*-result.json` into the
@@ -99,6 +131,18 @@ Order of work, as Cameron set it:
   Seen in PR #24's first stats job (run 42357934887): the baseline read failed and was swallowed as
   "No baseline available". Fixed: empty `extraheader` values reset the list before ours, and git
   never runs in the workspace by default. Covered by a test against a local HTTP server.
+- **Runners evaluate `${{ }}` inside `action.yml` input descriptions.** A `${{ runner.os }}` example
+  in `collect`'s `flags` description failed every job: "Unrecognized named-value: 'runner'" (PR #25,
+  run 42576274257). Never put expressions in descriptions.
+- **The repo's `.gitignore` had `coverage/` unanchored**, which silently ignored `src/coverage/`
+  and `test/fixtures/coverage/`. Now `/coverage/`.
+- **gcovr lists a line once per function on it** (Linux report: poller.cpp:33, :43,
+  serialport.cpp:364) and counts each copy in `lines-valid`. We count a line once, so our totals
+  are 3 lower than gcovr's 641 there. Tests compare against the report minus duplicates.
+- **nyc writes `BRDA` on lines with no `DA`** (a branch's start line). Counting those as lines gave
+  504 vs LF=499. They're stored as branch-only (`hits: -1`): branches count, the line doesn't.
+- **fast-xml-parser returns text-only elements as strings**, so `children()` (objects only) lost
+  every Cobertura `<source>`. Read them directly.
 - **A swallowed baseline error hides real failures.** The job went green while compare was broken.
   Now a warning (`core.warning`) instead of info.
 
@@ -120,7 +164,11 @@ Order of work, as Cameron set it:
 - [x] First recorded run on master (run 42572413395, Nov 8 10:21 PM PST (06:21Z Nov 9)): pushed on
   attempt 1 as `gh-pages@5a4b3bd`; Pages serves `stats/`, `data/index.json` and the badge
   ("tests: 150 passing" = 50 tests × 3 OSes)
-- [ ] Phase 2 coverage
+- [x] Phase 2 coverage engine (`badd6ab`, branch `phase-2`): lcov + Cobertura readers, path
+  resolution, merge, flags, components, carryforward, patch coverage, detail files, badges,
+  summary section, dashboard section, README, dogfood in CI
+- [ ] Phase 2 PR green on 3 OSes; PR summary shows coverage (compare-only on a PR)
+- [ ] Phase 2 merged (needs Cameron's yes); first master run stores coverage + badge
 
 ## Open questions for the user
 

@@ -73,3 +73,31 @@ export function testsBadge(t: TestBadgeInput): string {
     : `${t.passed} passing`;
   return renderBadge('tests', msg, COLORS.green);
 }
+
+export function coverageColor(percent: number): string {
+  if (percent >= 90) return COLORS.green;
+  if (percent >= 75) return COLORS.yellowgreen;
+  if (percent >= 60) return COLORS.yellow;
+  if (percent >= 40) return COLORS.orange;
+  return COLORS.red;
+}
+
+/** `[hit, total]` → a coverage badge, floored to one decimal so 99.99%
+ *  never shows as 100%. */
+export function coverageBadge(label: string, [hit, total]: [number, number]) {
+  if (!total) return renderBadge(label, 'n/a', COLORS.grey);
+  const p = Math.floor((1000 * hit) / total) / 10;
+  return renderBadge(label, `${p.toFixed(1)}%`, coverageColor(p));
+}
+
+/** A file-name-safe slug for badge names: `C/C++` → `c-cpp`, `C#` → `csharp`. */
+export function slug(name: string): string {
+  return (
+    name
+      .toLowerCase()
+      .replace(/\+/g, 'p')
+      .replace(/#/g, 'sharp')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'x'
+  );
+}

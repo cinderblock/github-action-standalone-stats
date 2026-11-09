@@ -14,6 +14,13 @@ import {
   addTest,
   sumTotals,
   worse,
+  mergeCoverage,
+  totals,
+  pct,
+  formatPct,
+  encodeCoverage,
+  decodeCoverage,
+  parseCoverageFormat,
   parseMatrix,
   identity,
   parseList,
@@ -25,10 +32,10 @@ import {
   DEFAULT_PREFIX,
   downloadUploads,
   dedupe
-} from "../chunks/main-xvb5k137.js";
+} from "../chunks/main-g8cm915c.js";
 
 // src/publish/main.ts
-import { cp as cp2, mkdir as mkdir2, rm as rm2, writeFile as writeFile2 } from "node:fs/promises";
+import { cp as cp2, mkdir as mkdir2, rm as rm3, writeFile as writeFile2 } from "node:fs/promises";
 import { existsSync as existsSync2 } from "node:fs";
 import { join as join3 } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -172,6 +179,61 @@ async function publishBranch(opts) {
   }
 }
 
+// src/coverage/patch.ts
+function addedLines(patch) {
+  const out = new Set;
+  let line = 0;
+  let inHunk = false;
+  for (const raw of patch.split(`
+`)) {
+    const l = raw.replace(/\r$/, "");
+    const h = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(l);
+    if (h) {
+      line = Number(h[1]);
+      inHunk = true;
+      continue;
+    }
+    if (!inHunk)
+      continue;
+    if (l.startsWith("+"))
+      out.add(line++);
+    else if (l.startsWith("-"))
+      continue;
+    else if (l.startsWith("\\"))
+      continue;
+    else
+      line++;
+  }
+  return out;
+}
+function patchCoverage(cov, diff, base) {
+  const files = [];
+  let hit = 0;
+  let total = 0;
+  for (const [path, lines] of diff.files) {
+    const file = cov.get(path);
+    if (!file)
+      continue;
+    let fh = 0;
+    let ft = 0;
+    for (const n of lines) {
+      const c = file.get(n);
+      if (!c || c.hits < 0)
+        continue;
+      ft++;
+      if (c.hits > 0)
+        fh++;
+    }
+    if (!ft)
+      continue;
+    files.push({ path, hit: fh, total: ft });
+    hit += fh;
+    total += ft;
+  }
+  files.sort((a, b) => a.hit / a.total - b.hit / b.total || a.path.localeCompare(b.path));
+  return { base, partial: diff.partial, hit, total, files };
+}
+
 // src/github.ts
 function parseRepo(slug) {
   const m = slug.match(/^([^/\s]+)\/([^/\s]+)$/);
@@ -265,6 +327,231 @@ function defaultPagesUrl(ref, path) {
     return `https://${ref.name}/${suffix}`;
   return `https://${ref.owner}.github.io/${ref.name}/${suffix}`;
 }
+var COMPARE_FILE_CAP = 300;
+async function compareDiff(ref, base, head, opts) {
+  const files = new Map;
+  let partial = false;
+  let seen = 0;
+  for (let page = 1;page <= 3; page++) {
+    const { status, body } = await api("GET", `/repos/${ref.owner}/${ref.name}/compare/${encodeURIComponent(base)}...${encodeURIComponent(head)}?per_page=100&page=${page}`, undefined, opts);
+    if (status !== 200) {
+      if (page === 1) {
+        info(`No diff for patch coverage (compare API status ${status})`);
+        return;
+      }
+      partial = true;
+      break;
+    }
+    const list = body.files ?? [];
+    for (const f of list) {
+      seen++;
+      if (f.status === "removed")
+        continue;
+      if (f.patch === undefined) {
+        if (f.changes)
+          partial = true;
+        continue;
+      }
+      files.set(f.filename, addedLines(f.patch));
+    }
+    if (list.length < 100)
+      break;
+    if (seen >= COMPARE_FILE_CAP)
+      partial = true;
+  }
+  return { files, partial };
+}
+
+// src/coverage/components.ts
+function globToRegExp(glob) {
+  let g = glob.trim().replace(/\\/g, "/").replace(/^\.\//, "");
+  const anywhere = !g.includes("/");
+  if (g.startsWith("/"))
+    g = g.slice(1);
+  let re = "";
+  let depth = 0;
+  for (let i = 0;i < g.length; i++) {
+    const c = g[i];
+    if (c === "*") {
+      if (g[i + 1] === "*") {
+        const slash = g[i + 2] === "/";
+        re += slash ? "(?:.*/)?" : ".*";
+        i += slash ? 2 : 1;
+      } else
+        re += "[^/]*";
+    } else if (c === "?")
+      re += "[^/]";
+    else if (c === "{") {
+      depth++;
+      re += "(?:";
+    } else if (c === "}" && depth) {
+      depth--;
+      re += ")";
+    } else if (c === "," && depth)
+      re += "|";
+    else
+      re += c.replace(/[.+^$()|[\]\\]/g, "\\$&");
+  }
+  if (g.endsWith("/"))
+    re += ".*";
+  return new RegExp(`^${anywhere ? "(?:.*/)?" : ""}${re}$`);
+}
+function parseComponents(raw) {
+  const out = [];
+  for (const line of raw.split(/\r?\n/)) {
+    const s = line.trim();
+    if (!s || s.startsWith("#"))
+      continue;
+    const i = s.indexOf(":");
+    if (i <= 0)
+      throw new Error(`components: expected "Name: glob, glob", got ${JSON.stringify(s)}`);
+    const name = s.slice(0, i).trim();
+    const patterns = s.slice(i + 1).split(",").map((p) => p.trim()).filter(Boolean);
+    if (!patterns.length)
+      throw new Error(`components: ${JSON.stringify(name)} has no globs`);
+    const existing = out.find((c) => c.name === name);
+    if (existing)
+      existing.patterns.push(...patterns);
+    else
+      out.push({ name, patterns });
+  }
+  return out;
+}
+var LANGUAGES = [
+  ["TypeScript", ["ts", "tsx", "mts", "cts"]],
+  ["JavaScript", ["js", "jsx", "mjs", "cjs"]],
+  ["C/C++", ["c", "h", "cc", "cpp", "cxx", "c++", "hh", "hpp", "hxx", "h++", "ipp", "inl"]],
+  ["Objective-C", ["m", "mm"]],
+  ["Python", ["py", "pyx"]],
+  ["Go", ["go"]],
+  ["Rust", ["rs"]],
+  ["Java", ["java"]],
+  ["Kotlin", ["kt", "kts"]],
+  ["Scala", ["scala"]],
+  ["C#", ["cs"]],
+  ["F#", ["fs"]],
+  ["Swift", ["swift"]],
+  ["Ruby", ["rb"]],
+  ["PHP", ["php"]],
+  ["Dart", ["dart"]],
+  ["Elixir", ["ex", "exs"]],
+  ["Vue", ["vue"]],
+  ["Svelte", ["svelte"]]
+];
+var BY_EXT = new Map(LANGUAGES.flatMap(([lang, exts]) => exts.map((e) => [e, lang])));
+function languageOf(path) {
+  const base = path.slice(path.lastIndexOf("/") + 1);
+  const dot = base.lastIndexOf(".");
+  if (dot <= 0)
+    return "Other";
+  return BY_EXT.get(base.slice(dot + 1).toLowerCase()) ?? "Other";
+}
+function assignComponents(paths, components) {
+  const out = new Map;
+  if (!components.length) {
+    for (const p of paths)
+      out.set(p, [languageOf(p)]);
+    return out;
+  }
+  const compiled = components.map((c) => ({
+    name: c.name,
+    res: c.patterns.map(globToRegExp)
+  }));
+  for (const p of paths)
+    out.set(p, compiled.filter((c) => c.res.some((r) => r.test(p))).map((c) => c.name));
+  return out;
+}
+
+// src/publish/coverage.ts
+var PATCH_FILE_CAP = 100;
+function detailPath(key) {
+  return `data/detail/${key}.json`;
+}
+var groupKey = (flags) => JSON.stringify([...flags].sort());
+function addGroup(groups, flags, cov) {
+  const k = groupKey(flags);
+  const g = groups.get(k);
+  if (g)
+    mergeCoverage(g.cov, cov);
+  else
+    groups.set(k, { flags: [...flags].sort(), cov: mergeCoverage(new Map, cov) });
+}
+function buildCoverage(uploads, o) {
+  const groups = new Map;
+  const perUpload = new Map;
+  const present = new Set;
+  for (const u of uploads) {
+    if (!u.coverage)
+      continue;
+    const cov = decodeCoverage(u.coverage.files);
+    perUpload.set(u.key, totals(cov));
+    for (const f of u.flags)
+      present.add(f);
+    addGroup(groups, u.flags, cov);
+  }
+  const carried = new Set;
+  for (const g of o.baselineDetail?.groups ?? []) {
+    const flags = Array.isArray(g.flags) ? g.flags.map(String) : [];
+    if (!flags.length)
+      continue;
+    if (!flags.every((f) => !present.has(f) && o.carryforward(f)))
+      continue;
+    for (const f of flags)
+      carried.add(f);
+    addGroup(groups, flags, decodeCoverage(g.files));
+  }
+  if (!groups.size)
+    return;
+  const merged = new Map;
+  for (const g of groups.values())
+    mergeCoverage(merged, g.cov);
+  const allFlags = [...new Set([...groups.values()].flatMap((g) => g.flags))].sort();
+  const flags = {};
+  for (const f of allFlags) {
+    const cov = new Map;
+    for (const g of groups.values())
+      if (g.flags.includes(f))
+        mergeCoverage(cov, g.cov);
+    flags[f] = carried.has(f) ? { ...totals(cov), carried: true } : totals(cov);
+  }
+  const assignment = assignComponents(merged.keys(), o.components);
+  const names = [...new Set([...assignment.values()].flat())].sort();
+  const components = {};
+  for (const name of names)
+    components[name] = totals(merged, (p) => assignment.get(p)?.includes(name) ?? false);
+  const detail = detailPath(o.key);
+  const coverage = {
+    totals: totals(merged),
+    flags,
+    components,
+    carriedForward: [...carried].sort(),
+    detail
+  };
+  if (o.diff) {
+    const p = patchCoverage(merged, o.diff.diff, o.diff.base);
+    coverage.patch = { ...p, files: p.files.slice(0, PATCH_FILE_CAP) };
+  }
+  return {
+    coverage,
+    merged,
+    perUpload,
+    detail: {
+      schema: SCHEMA,
+      key: o.key,
+      sha: o.sha,
+      groups: [...groups.values()].sort((a, b) => groupKey(a.flags).localeCompare(groupKey(b.flags))).map((g) => ({ flags: g.flags, files: encodeCoverage(g.cov) }))
+    }
+  };
+}
+function parseCarryforward(raw) {
+  const v = raw.trim();
+  if (!v || /^(false|no|off|0|none)$/i.test(v))
+    return () => false;
+  if (/^(true|yes|on|1|all)$/i.test(v))
+    return () => true;
+  const set = new Set(v.split(/[\n,]/).map((s) => s.trim()).filter(Boolean));
+  return (f) => set.has(f);
+}
 
 // src/version.ts
 var VERSION = "1.0.0";
@@ -324,6 +611,11 @@ function readPublishInputs(getInput, currentRepo, envToken) {
     token,
     record: parseRecordMode(getInput("record")),
     tests: parseList(getInput("tests")).filter(Boolean),
+    coverage: parseList(getInput("coverage")),
+    components: parseComponents(getInput("components")),
+    carryforward: getInput("carryforward"),
+    detailWindow: parseIntInput(getInput("detail-window"), "detail-window", 50, 1, 1e4),
+    patchCoverage: parseBool(getInput("patch-coverage"), "patch-coverage", true),
     flags: parseList(getInput("flags")),
     id: getInput("id").trim(),
     matrix: getInput("matrix"),
@@ -345,6 +637,9 @@ function readPublishInputs(getInput, currentRepo, envToken) {
   const fmt = parseFormat(getInput("test-format"));
   if (fmt)
     inputs.testFormat = fmt;
+  const covFmt = parseCoverageFormat(getInput("coverage-format"));
+  if (covFmt)
+    inputs.coverageFormat = covFmt;
   return inputs;
 }
 
@@ -389,7 +684,7 @@ function buildRecord(uploads, ctx) {
     for (const tc of u.tests)
       addTest(t, tc);
     totals = sumTotals(totals, t);
-    return {
+    const summary = {
       key: u.key,
       label: u.label,
       dims: u.dims,
@@ -397,6 +692,10 @@ function buildRecord(uploads, ctx) {
       formats: [...new Set(u.sources.map((s) => s.format))],
       tests: t
     };
+    const cov = ctx.coverage?.perUpload.get(u.key);
+    if (cov)
+      summary.coverage = cov;
+    return summary;
   });
   const failures = [];
   let failing = 0;
@@ -437,6 +736,8 @@ function buildRecord(uploads, ctx) {
       failuresTruncated: failing > failures.length
     }
   };
+  if (ctx.coverage)
+    record.coverage = ctx.coverage.coverage;
   return { record, tests };
 }
 function compare(current, tests, base) {
@@ -447,7 +748,7 @@ function compare(current, tests, base) {
   const fixed = [...baseFailing].filter((id) => !curFailing.has(id) && tests.get(id)?.status === "passed").sort();
   const c = current.tests.totals;
   const b = base.tests.totals;
-  return {
+  const cmp = {
     baseKey: base.key,
     baseSha: base.commit.sha,
     newFailures,
@@ -459,6 +760,9 @@ function compare(current, tests, base) {
       durationMs: c.durationMs - b.durationMs
     }
   };
+  if (current.coverage && base.coverage)
+    cmp.coverage = { base: base.coverage.totals, baseRun: base };
+  return cmp;
 }
 
 // src/publish/privacy.ts
@@ -489,7 +793,7 @@ function checkPrivacy(i) {
 }
 
 // src/publish/store.ts
-import { cp, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, rm as rm2, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, join as join2 } from "node:path";
 
@@ -541,6 +845,26 @@ function testsBadge(t) {
   const msg = t.skipped ? `${t.passed} passing, ${t.skipped} skipped` : `${t.passed} passing`;
   return renderBadge("tests", msg, COLORS.green);
 }
+function coverageColor(percent) {
+  if (percent >= 90)
+    return COLORS.green;
+  if (percent >= 75)
+    return COLORS.yellowgreen;
+  if (percent >= 60)
+    return COLORS.yellow;
+  if (percent >= 40)
+    return COLORS.orange;
+  return COLORS.red;
+}
+function coverageBadge(label, [hit, total]) {
+  if (!total)
+    return renderBadge(label, "n/a", COLORS.grey);
+  const p = Math.floor(1000 * hit / total) / 10;
+  return renderBadge(label, `${p.toFixed(1)}%`, coverageColor(p));
+}
+function slug(name) {
+  return name.toLowerCase().replace(/\+/g, "p").replace(/#/g, "sharp").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "x";
+}
 
 // src/publish/store.ts
 function runPath(record) {
@@ -577,6 +901,23 @@ function entryOf(record, path) {
   };
   if (record.commit.branch)
     e.branch = record.commit.branch;
+  const cov = record.coverage;
+  if (cov) {
+    const pair = (r) => [r.hit, r.total];
+    const c = {
+      l: pair(cov.totals.lines),
+      b: pair(cov.totals.branches)
+    };
+    const comps = Object.entries(cov.components);
+    if (comps.length)
+      c.c = Object.fromEntries(comps.map(([k, v]) => [k, pair(v.lines)]));
+    const flags = Object.entries(cov.flags);
+    if (flags.length)
+      c.f = Object.fromEntries(flags.map(([k, v]) => [k, pair(v.lines)]));
+    if (cov.patch)
+      c.p = pair(cov.patch);
+    e.coverage = c;
+  }
   return e;
 }
 async function* walkRuns(dir) {
@@ -651,6 +992,8 @@ function updateTestsIndex(prev, key, tests, window) {
 async function applyRun(root, record, tests, opts) {
   const path = runPath(record);
   await writeJson(join2(root, path), record);
+  if (record.coverage && opts.detail)
+    await writeJson(join2(root, record.coverage.detail), opts.detail);
   const index = await readIndex(root, opts.repo);
   index.runs = index.runs.filter((r) => r.key !== record.key);
   index.runs.push(entryOf(record, path));
@@ -670,9 +1013,39 @@ async function applyRun(root, record, tests, opts) {
   const newest = index.runs[index.runs.length - 1];
   await mkdir(join2(root, "badges"), { recursive: true });
   await writeFile(join2(root, "badges", "tests.svg"), testsBadge(newest.tests));
+  const newestCov = [...index.runs].reverse().find((r) => r.coverage)?.coverage;
+  if (newestCov)
+    await writeCoverageBadges(join2(root, "badges"), newestCov);
+  await pruneDetail(root, index, opts.detailWindow ?? 50);
   if (opts.viewerDir && existsSync(opts.viewerDir))
     await cp(opts.viewerDir, root, { recursive: true, force: true });
   return index;
+}
+async function writeCoverageBadges(dir, c) {
+  for (const f of await readdir(dir))
+    if (/^(coverage-|flag-).*\.svg$/.test(f))
+      await rm2(join2(dir, f));
+  await writeFile(join2(dir, "coverage.svg"), coverageBadge("coverage", c.l));
+  for (const [name, pair] of Object.entries(c.c ?? {}))
+    await writeFile(join2(dir, `coverage-${slug(name)}.svg`), coverageBadge(name, pair));
+  for (const [name, pair] of Object.entries(c.f ?? {}))
+    await writeFile(join2(dir, `flag-${slug(name)}.svg`), coverageBadge(name, pair));
+}
+async function pruneDetail(root, index, window) {
+  const dir = join2(root, "data", "detail");
+  if (!existsSync(dir))
+    return;
+  const keep = new Set(index.runs.slice(-Math.max(1, window)).map((r) => `${r.key}.json`));
+  for (const f of await readdir(dir))
+    if (f.endsWith(".json") && !keep.has(f))
+      await rm2(join2(dir, f));
+}
+async function readDetail(root, record) {
+  const rel = record.coverage?.detail;
+  if (!rel || !/^data\/detail\/[\w.-]+\.json$/.test(rel))
+    return;
+  const d = await readJson(join2(root, rel));
+  return d?.schema === SCHEMA && Array.isArray(d.groups) ? d : undefined;
 }
 async function readBaseline(root, repo, branch, excludeRunId) {
   if (!existsSync(join2(root, "data")))
@@ -691,6 +1064,7 @@ async function readBaseline(root, repo, branch, excludeRunId) {
 
 // src/publish/summary.ts
 var md = (s) => s.replace(/([\\`*_[\]<>|])/g, "\\$1");
+var code = (s) => `\`${s.replace(/[`|]/g, "?")}\``;
 function formatDuration(ms) {
   if (ms < 1000)
     return `${ms} ms`;
@@ -704,6 +1078,63 @@ function signed(n) {
   return n > 0 ? `+${n}` : String(n);
 }
 var LIST_LIMIT = 25;
+function deltaPct(cur, base) {
+  const a = pct(cur);
+  const b = base ? pct(base) : undefined;
+  if (a === undefined || b === undefined)
+    return "";
+  const d = Math.round((a - b) * 100) / 100;
+  if (d === 0)
+    return "±0%";
+  return `${d > 0 ? "+" : ""}${d.toFixed(2)}%`;
+}
+var ratio = (r) => r.total ? `${formatPct(r)} (${r.hit}/${r.total})` : "n/a";
+function breakdown(title, cur, base) {
+  const names = Object.keys(cur);
+  if (!names.length)
+    return [];
+  const withBase = !!base;
+  const out = [
+    `| ${title} | Lines |${withBase ? " Δ |" : ""} Branches | Files |`,
+    `| --- | ---: |${withBase ? " ---: |" : ""} ---: | ---: |`
+  ];
+  for (const n of names) {
+    const c = cur[n];
+    const d = withBase ? ` ${base?.[n] ? deltaPct(c.lines, base[n].lines) : "new"} |` : "";
+    out.push(`| ${md(n)}${c.carried ? " (carried forward)" : ""} | ${ratio(c.lines)} |${d} ${ratio(c.branches)} | ${c.files} |`);
+  }
+  out.push("");
+  return out;
+}
+function renderCoverage(cov, base, baseSha, badge, siteUrl) {
+  const out = ["### Coverage", ""];
+  if (badge && siteUrl)
+    out.push(`[![coverage](${badge})](${siteUrl})`, "");
+  const t = cov.totals;
+  const d = base ? deltaPct(t.lines, base.totals.lines) : "";
+  const bits = [
+    `**Lines ${ratio(t.lines)}**${d ? ` (${d} vs \`${baseSha?.slice(0, 7)}\`)` : ""}`,
+    t.branches.total ? `branches ${ratio(t.branches)}` : "",
+    `${t.files} files`
+  ].filter(Boolean);
+  out.push(bits.join(" · "), "");
+  if (cov.patch) {
+    const p = cov.patch;
+    out.push(p.total ? `**Patch ${ratio(p)}**: changed lines that ran${p.partial ? " (diff incomplete: too many files)" : ""}.` : "Patch: no coverable lines changed.", "");
+  }
+  if (cov.carriedForward.length)
+    out.push(`Carried forward from the baseline (not run this time): ${cov.carriedForward.map(code).join(", ")}.`, "");
+  if (Object.keys(cov.components).length > 1)
+    out.push(...breakdown("Component", cov.components, base?.components));
+  out.push(...breakdown("Flag", cov.flags, base?.flags));
+  const missed = cov.patch?.files.filter((f) => f.hit < f.total) ?? [];
+  if (missed.length) {
+    const rows = missed.slice(0, LIST_LIMIT).map((f) => `| ${code(f.path)} | ${ratio(f)} | ${f.total - f.hit} |`);
+    out.push(`<details><summary>Changed files with uncovered lines (${missed.length})</summary>`, "", "| File | Patch | Missed |", "| --- | ---: | ---: |", ...rows, "", missed.length > LIST_LIMIT ? `…and ${missed.length - LIST_LIMIT} more
+` : "", "</details>", "");
+  }
+  return out;
+}
 function list(title, ids) {
   if (!ids.length)
     return "";
@@ -724,9 +1155,10 @@ function renderSummary(record, cmp, links) {
   const out = ["## Standalone Stats", ""];
   if (links.badgeUrl && links.siteUrl)
     out.push(`[![tests](${links.badgeUrl})](${links.siteUrl})`, "");
+  const hasTests = record.uploads.some((u) => u.tests.total > 0);
   if (!record.uploads.length) {
-    out.push("No test results were found for this run.", "");
-  } else {
+    out.push("No test results or coverage were found for this run.", "");
+  } else if (!hasTests) {} else {
     const parts = [
       `${bad ? "❌" : "✅"} **${t.passed}** passed`,
       bad ? `**${bad}** failing` : "",
@@ -747,10 +1179,12 @@ function renderSummary(record, cmp, links) {
       ].filter(Boolean);
       out.push(`Compared with \`${sha}\`: ${bits.join(", ")}.`, "");
     }
-    out.push("| Job | Passed | Failed | Skipped | Time |", "| --- | ---: | ---: | ---: | ---: |");
+    const covCol = record.uploads.some((u) => u.coverage);
+    out.push(`| Job | Passed | Failed | Skipped | Time |${covCol ? " Lines |" : ""}`, `| --- | ---: | ---: | ---: | ---: |${covCol ? " ---: |" : ""}`);
     for (const u of record.uploads) {
       const f = u.tests.failed + u.tests.errored;
-      out.push(`| ${md(u.label)} | ${u.tests.passed} | ${f ? `**${f}**` : 0} | ${u.tests.skipped} | ${formatDuration(u.tests.durationMs)} |`);
+      const c = covCol ? ` ${u.coverage ? formatPct(u.coverage.lines) : ""} |` : "";
+      out.push(`| ${md(u.label)} | ${u.tests.passed} | ${f ? `**${f}**` : 0} | ${u.tests.skipped} | ${formatDuration(u.tests.durationMs)} |${c}`);
     }
     out.push("");
     if (cmp) {
@@ -782,6 +1216,8 @@ ${rows.join(`
 `);
     }
   }
+  if (record.coverage)
+    out.push(...renderCoverage(record.coverage, cmp?.coverage?.baseRun.coverage, cmp?.baseSha, links.coverageBadgeUrl, links.siteUrl));
   if (links.siteUrl)
     out.push(`Dashboard: ${links.siteUrl}`, "");
   if (links.note)
@@ -789,25 +1225,39 @@ ${rows.join(`
   else if (!links.recorded)
     out.push("> This run was compared but not recorded in history.", "");
   return out.filter((s) => s !== undefined).join(`
+`).replace(/\n{3,}/g, `
+
 `);
 }
 
 // src/publish/main.ts
+async function loadBaseline(root, repo, branch, excludeRunId) {
+  const record = await readBaseline(root, repo, branch, excludeRunId);
+  if (!record)
+    return;
+  const detail = await readDetail(root, record);
+  return detail ? { record, detail } : { record };
+}
 var viewerDir = () => fileURLToPath(new URL("../viewer/", import.meta.url));
 async function collectUploads(inputs, ctx) {
   const uploads = [];
-  if (inputs.tests.length) {
+  if (inputs.tests.length || inputs.coverage.length) {
     const id = identity(ctx.job, parseMatrix(inputs.matrix), inputs.id, ctx.runnerOs);
     const local = await gather({
       identity: id,
       testPatterns: inputs.tests,
       ...inputs.testFormat ? { testFormat: inputs.testFormat } : {},
+      coveragePatterns: inputs.coverage,
+      ...inputs.coverageFormat ? { coverageFormat: inputs.coverageFormat } : {},
+      warn: (m) => warning(m),
       flags: inputs.flags,
       workspace: ctx.workspace,
       attempt: ctx.run.attempt
     });
-    if (!local.sources.length)
+    if (inputs.tests.length && !local.sources.length)
       warning(`No test results matched: ${inputs.tests.join(", ")}`);
+    if (inputs.coverage.length && !local.coverage)
+      warning(`No coverage reports matched: ${inputs.coverage.join(", ")}`);
     uploads.push(local);
   }
   if (inputs.downloadArtifacts) {
@@ -827,9 +1277,9 @@ async function readOnlyBaseline(remote, inputs, ctx, branch) {
       return;
     const { dir } = await checkout(remote, inputs.branch);
     try {
-      return await readBaseline(join3(dir, inputs.path), inputs.repo, branch, ctx.run.id);
+      return await loadBaseline(join3(dir, inputs.path), inputs.repo, branch, ctx.run.id);
     } finally {
-      await rm2(dir, { recursive: true, force: true }).catch(() => {});
+      await rm3(dir, { recursive: true, force: true }).catch(() => {});
     }
   } catch (err) {
     warning(`Could not read the baseline, so nothing is compared: ${err.message}`);
@@ -848,11 +1298,37 @@ async function run() {
   const api = { token: inputs.token };
   const uploads = await collectUploads(inputs, ctx);
   if (!uploads.length)
-    warning("No test results: nothing matched `tests`, and no collect artifacts were found in this run.");
-  const { record, tests } = buildRecord(uploads, {
-    run: ctx.run,
-    commit: ctx.commit
-  });
+    warning("No results: nothing matched `tests` or `coverage`, and no collect artifacts were found in this run.");
+  let diff;
+  if (inputs.patchCoverage && ctx.patchBase && uploads.some((u) => u.coverage)) {
+    try {
+      const d = await compareDiff(parseRepo(ctx.repo), ctx.patchBase, ctx.commit.sha, api);
+      if (d)
+        diff = { diff: d, base: ctx.patchBase };
+    } catch (err) {
+      warning(`Patch coverage skipped: ${err.message}`);
+    }
+  }
+  const carryforward = parseCarryforward(inputs.carryforward);
+  const build = (base) => {
+    const cov = buildCoverage(uploads, {
+      key: `${ctx.run.id}-${ctx.run.attempt}`,
+      sha: ctx.commit.sha,
+      components: inputs.components,
+      carryforward,
+      ...base?.detail ? { baselineDetail: base.detail } : {},
+      ...diff ? { diff } : {}
+    });
+    return {
+      ...buildRecord(uploads, {
+        run: ctx.run,
+        commit: ctx.commit,
+        ...cov ? { coverage: cov } : {}
+      }),
+      cov
+    };
+  };
+  let built = build();
   const baseBranch = ctx.baseBranch ?? ctx.defaultBranch;
   let recorded = false;
   let note;
@@ -904,10 +1380,13 @@ async function run() {
         await mkdir2(root, { recursive: true });
         if (fresh)
           await writeFile2(join3(dir, ".nojekyll"), "");
-        baseline = baseBranch ? await readBaseline(root, inputs.repo, baseBranch, ctx.run.id) : undefined;
-        await applyRun(root, record, tests, {
+        baseline = baseBranch ? await loadBaseline(root, inputs.repo, baseBranch, ctx.run.id) : undefined;
+        built = build(baseline);
+        await applyRun(root, built.record, built.tests, {
           repo: ctx.repo,
           window: inputs.historyWindow,
+          detailWindow: inputs.detailWindow,
+          ...built.cov ? { detail: built.cov.detail } : {},
           ...inputs.viewer && existsSync2(viewerDir()) ? { viewerDir: viewerDir() } : {},
           generator: GENERATOR
         });
@@ -917,24 +1396,29 @@ async function run() {
       recorded = result.committed;
       info(result.committed ? `Published to ${inputs.repo}:${inputs.branch}/${inputs.path} (attempt ${result.attempts})` : "Nothing changed on the stats branch.");
       const siteDir = join3(process.env.RUNNER_TEMP || result.dir, "standalone-stats-site");
-      await rm2(siteDir, { recursive: true, force: true });
+      await rm3(siteDir, { recursive: true, force: true });
       await cp2(inputs.path ? join3(result.dir, inputs.path) : result.dir, siteDir, {
         recursive: true,
         filter: (src) => !src.split(/[\\/]/).includes(".git")
       });
       setOutput("site-dir", siteDir);
     } finally {
-      await rm2(result.dir, { recursive: true, force: true }).catch(() => {});
+      await rm3(result.dir, { recursive: true, force: true }).catch(() => {});
     }
   } else if (baseBranch) {
     baseline = await readOnlyBaseline(remote, inputs, ctx, baseBranch);
+    built = build(baseline);
   }
-  const cmp = baseline ? compare(record, tests, baseline) : undefined;
+  const { record, tests } = built;
+  if (record.coverage?.carriedForward.length)
+    info(`Carried forward from the baseline: ${record.coverage.carriedForward.join(", ")}`);
+  const cmp = baseline ? compare(record, tests, baseline.record) : undefined;
   publishOutputs(record, cmp?.newFailures.length ?? 0, siteUrl, recorded);
   const badgeUrl = `${siteUrl}badges/tests.svg`;
   const summaryLinks = {
     siteUrl,
     badgeUrl,
+    coverageBadgeUrl: `${siteUrl}badges/coverage.svg`,
     recorded,
     ...note ? { note } : {}
   };
@@ -956,6 +1440,14 @@ function publishOutputs(record, newFailures, siteUrl, recorded) {
   setOutput("tests-failed", String(t.failed + t.errored));
   setOutput("tests-skipped", String(t.skipped));
   setOutput("new-failures", String(newFailures));
+  const cov = record.coverage;
+  const fmt = (r) => r ? pct(r)?.toFixed(2) ?? "" : "";
+  setOutput("coverage-lines", fmt(cov?.totals.lines));
+  setOutput("coverage-branches", fmt(cov?.totals.branches));
+  setOutput("coverage-patch", fmt(cov?.patch));
+  const covBadge = `${siteUrl}badges/coverage.svg`;
+  setOutput("coverage-badge-url", cov ? covBadge : "");
+  setOutput("coverage-badge-markdown", cov ? `[![coverage](${covBadge})](${siteUrl})` : "");
 }
 run().catch((err) => {
   setFailed(err instanceof Error ? err.message : String(err));

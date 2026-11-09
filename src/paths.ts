@@ -84,6 +84,46 @@ export function relativize(
   return f.replace(/^[a-z]:/, '').replace(/^\/+/, '');
 }
 
+/**
+ * Resolve a file named in a coverage report to a workspace-relative path,
+ * or `undefined` when it's outside the workspace (system headers,
+ * dependencies). Relative names are tried under each declared base
+ * (Cobertura `<source>`), preferring one that `exists`; with no base they're
+ * taken as already repo-relative.
+ */
+export function workspaceRelative(
+  file: string,
+  workspace: string,
+  bases: string[] = [],
+  exists?: (absolute: string) => boolean,
+): string | undefined {
+  const ws = toPosix(workspace);
+  const ci = /^[a-z]:/.test(ws) || /^[a-zA-Z]:/.test(file);
+  const strip = (abs: string): string | undefined => {
+    const r = ws.endsWith('/') ? ws : `${ws}/`;
+    if (abs.length > r.length && sameFs(abs.slice(0, r.length), r, ci))
+      return abs.slice(r.length);
+    return undefined;
+  };
+  const f = toPosix(file);
+  if (isAbsolute(f)) return strip(f);
+  if (!bases.length) return f || undefined;
+
+  const candidates = bases.map(b => toPosix(`${b.replace(/[\\/]+$/, '')}/${f}`));
+  const ordered = exists
+    ? [
+        ...candidates.filter(c => exists(c)),
+        ...candidates.filter(c => !exists(c)),
+      ]
+    : candidates;
+  for (const c of ordered) {
+    if (!isAbsolute(c)) return c;
+    const rel = strip(c);
+    if (rel !== undefined) return rel;
+  }
+  return undefined;
+}
+
 export function isAbsolute(p: string): boolean {
   return p.startsWith('/') || /^[a-zA-Z]:/.test(p);
 }
