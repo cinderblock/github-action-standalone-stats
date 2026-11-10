@@ -63,7 +63,7 @@ Order of work, as Cameron set it:
    Allure generation removed, dogfood on this repo's CI.
 3. ✅ Phase 2, coverage: lcov + Cobertura, path normalization, Codecov-style merge, flags,
    components, carryforward, patch coverage, coverage badges.
-4. ▶ **(current)** Phase 3, viewer SPA.
+4. ▶ **(current)** Phase 3, viewer SPA: built, in review as a PR.
 5. Phase 4, PR comments (`workflow_run` companion), thresholds.
 6. Release as a set with the two sibling actions (needs a yes).
 
@@ -98,6 +98,26 @@ Order of work, as Cameron set it:
 - **Badges:** `coverage.svg`, `coverage-<component>.svg`, `flag-<flag>.svg`.
 - Deferred: thresholds/checks (phase 4), function coverage, a path-prefix fix-up input for
   monorepos.
+
+### Phase 3 design (Cameron: "go go go", 2026-11-10)
+
+- **Stack:** React 19 + Vite 8 + TS, a Vite project in `viewer/` (its own `tsconfig.json` with DOM
+  and JSX). `bun run build` runs the Vite build into `dist/viewer/` (relative `base: './'`, so it
+  works under any stats subdir). No router dependency: a small hash router (Pages has no rewrites).
+- **Shared code:** the viewer imports `src/coverage/model.ts` (decode, merge, totals) and the
+  types in `src/model.ts`, so the browser merges detail exactly the way publish does.
+- **Routes:** `#/` overview, `#/runs`, `#/runs/<key>`, `#/tests`, `#/tests/<id>`,
+  `#/coverage/<key>?path=<dir>&flags=<a,b>` (tree), `#/coverage/<key>/file/<path>` (lines).
+- **Source text** for the line view comes from `raw.githubusercontent.com/<repo>/<sha>/<path>`
+  (public repos, CORS allowed). If that fails (private repo), lines show without source.
+- **Charts:** hand-written SVG, dataviz skill rules (status colors for pass/fail, categorical
+  order for flags/components, tooltips on hover _and_ tap, no `title=` attributes anywhere).
+- **Times:** local 12-hour with zone, UTC in smaller text beside it.
+- **Dev data:** `scripts/demo-data.ts` drives the real pipeline (`buildCoverage`, `buildRecord`,
+  `applyRun`) over the serialport fixtures with seeded noise: ~40 runs on master plus PR runs,
+  failures, flaky tests, carryforward, patch coverage. `bun run viewer:dev` serves it.
+- **E2E:** Playwright (headless Chromium) loads the built viewer over the demo data and checks
+  every route renders with no console errors. Separate CI job.
 
 ## Findings / gotchas
 
@@ -143,6 +163,13 @@ Order of work, as Cameron set it:
   504 vs LF=499. They're stored as branch-only (`hits: -1`): branches count, the line doesn't.
 - **fast-xml-parser returns text-only elements as strings**, so `children()` (objects only) lost
   every Cobertura `<source>`. Read them directly.
+- **An effect that returns a value crashes React on cleanup.** `useEffect(() => window.scrollTo(0, 0))`
+  returned something truthy in Chromium; React called it as the cleanup: "destroy_ is not a
+  function" on every navigation. Effects always get block bodies. Only the headless e2e run caught it.
+- **The publisher's viewer copy needs `assets/` cleared first.** Vite asset names are content-hashed,
+  so a plain `cp` would leave every old version's bundle on the branch. `applyRun` removes `assets/`.
+- **Root `tsc` (NodeNext) type-checks viewer files the unit tests import**, so viewer imports use
+  `.js` extensions (Vite and TS Bundler resolution accept them) and `router.ts` references the DOM lib.
 - **A swallowed baseline error hides real failures.** The job went green while compare was broken.
   Now a warning (`core.warning`) instead of info.
 
@@ -158,20 +185,23 @@ Order of work, as Cameron set it:
 - [x] Probe (run 42356876323, branch deleted): `strategy`/`matrix` contexts ARE readable in action input defaults
 - [x] Phase 1 implementation: PR #24 (https://github.com/cinderblock/github-action-standalone-stats/pull/24)
 - [x] `gh-pages` cleanup: prototype `allure-report/`, `vitest/`, `dashboard.svg` removed, root redirects
-  to `stats/` (`555bf23`; old content stays in `archive/gh-pages`)
+      to `stats/` (`555bf23`; old content stays in `archive/gh-pages`)
 - [x] Fixed duplicate Authorization header (see findings)
 - [x] PR #24 green after the auth fix; squash-merged as `e4acd24` with Cameron's yes (2026-11-08)
 - [x] First recorded run on master (run 42572413395, Nov 8 10:21 PM PST (06:21Z Nov 9)): pushed on
-  attempt 1 as `gh-pages@5a4b3bd`; Pages serves `stats/`, `data/index.json` and the badge
-  ("tests: 150 passing" = 50 tests × 3 OSes)
+      attempt 1 as `gh-pages@5a4b3bd`; Pages serves `stats/`, `data/index.json` and the badge
+      ("tests: 150 passing" = 50 tests × 3 OSes)
 - [x] Phase 2 coverage engine (`badd6ab`, branch `phase-2`): lcov + Cobertura readers, path
-  resolution, merge, flags, components, carryforward, patch coverage, detail files, badges,
-  summary section, dashboard section, README, dogfood in CI
+      resolution, merge, flags, components, carryforward, patch coverage, detail files, badges,
+      summary section, dashboard section, README, dogfood in CI
 - [x] Phase 2 PR #25 green on 3 OSes (after the description fix); squash-merged as `1b9ab71`
 - [x] First master run with coverage (run 42580049133, Nov 8 11:08 PM PST (07:08Z Nov 9)):
-  `gh-pages@c658d21`, detail file, `coverage.svg` (87.4%), TypeScript component and
-  Linux/Windows/macOS flag badges live on Pages; push patch coverage 749/832
-- [ ] Phase 3: dashboard SPA (React 19 + Vite, built into `dist/viewer` at dev time)
+      `gh-pages@c658d21`, detail file, `coverage.svg` (87.4%), TypeScript component and
+      Linux/Windows/macOS flag badges live on Pages; push patch coverage 749/832
+- [x] Phase 3 dashboard built (branch `phase-3`): overview, runs, run, tests, test, coverage
+  tree and per-line pages; demo data generator; unit tests (`test/viewer.test.ts`); Playwright
+  e2e on desktop and phone sizes (21 pass); CI `dashboard` job; README section
+- [ ] Phase 3 PR green and merged (needs Cameron's yes)
 
 ## Open questions for the user
 

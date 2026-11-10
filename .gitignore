@@ -3,3 +3,7 @@ node_modules/
 *.tgz
 .DS_Store
 # Note: dist/ IS committed — it's the bundled artifact GitHub runs.
+/viewer/.demo/
+/test-results/
+/playwright-report/
+/e2e-junit.xml

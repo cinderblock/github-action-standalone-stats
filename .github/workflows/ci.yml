@@ -36,7 +36,7 @@ jobs:
   # Fan-in: merge every job's results, record master's history on gh-pages,
   # and write the job summary. PRs (forks too) only get a comparison.
   stats:
-    needs: test
+    needs: [test, dashboard]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
@@ -51,6 +51,27 @@ jobs:
         id: stats
         uses: ./
       - run: echo "Dashboard ${{ steps.stats.outputs.site-url }} (recorded ${{ steps.stats.outputs.recorded }})"
+
+  # The dashboard, end to end: build it, generate the demo data through the
+  # real pipeline, and drive every page in headless Chromium (desktop and
+  # phone sizes).
+  dashboard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run e2e
+      - name: Collect results
+        if: ${{ !cancelled() }}
+        uses: ./collect
+        with:
+          tests: e2e-junit.xml
+          flags: dashboard
 
   # Load the committed bundles the way the runner does, and assert they get
   # past module loading into the action's own environment guard. Catches

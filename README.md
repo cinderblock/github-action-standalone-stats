@@ -30,8 +30,9 @@ per-component breakdowns, carryforward and patch coverage on pull requests.
 - Pull requests get a **job summary** comparing against the target branch:
   new failures, fixed tests, per-job counts, the coverage change and patch
   coverage. That works for fork PRs too, because it doesn't need write access.
-- Publishes a dashboard (trend, coverage, latest failures, flaky tests, recent
-  runs) and SVG badges: tests, coverage, and one per component and flag.
+- Publishes a dashboard and SVG badges (tests, coverage, and one per
+  component and flag). The dashboard is a small static app that reads the
+  JSON directly; see [Dashboard](#dashboard).
 
 ## Quick start: one job
 
@@ -198,6 +199,30 @@ repo is refused rather than guessed about.
 Failure messages are truncated to 2000 characters, and no source code is
 stored.
 
+## Dashboard
+
+`https://<owner>.github.io/<repo>/stats/` (or wherever your stats directory is
+served). Everything is client-side over the stored JSON; there's no server.
+
+- **Overview**: the latest run on the main branch (pick another branch, or all
+  of them), a stacked pass/fail/skip trend, a coverage trend (total, by flag or
+  by component), latest failures, the flakiest tests and recent runs.
+- **Runs**: every stored run, filterable by branch, event and failures. A run's
+  page has its jobs, failures with messages, per-flag and per-component
+  coverage with the change from its baseline, carried-forward flags and the
+  changed files' patch coverage.
+- **Tests**: every test seen in the last `history-window` runs, searchable,
+  sorted by failing, flakiest (pass↔fail flips) or slowest, with its history
+  strip. A test's page charts its duration per run.
+- **Coverage**: a directory tree for any run that still has line detail (the
+  newest `detail-window` runs), filterable by flag, down to a per-line view:
+  hits, branches taken, and the missed ranges to jump to. Source text comes
+  from `raw.githubusercontent.com` at the run's commit, so it shows for public
+  repositories; private ones get the line data without the text.
+
+Charts answer to hover, tap and the arrow keys. Times are shown in your local
+zone with UTC beside them.
+
 ## Where things live
 
 Default: branch `gh-pages`, directory `stats/`. It sits next to whatever else
@@ -205,7 +230,7 @@ your Pages site serves.
 
 ```
 stats/
-  index.html                       dashboard
+  index.html, assets/              dashboard (replaced on every publish)
   badges/tests.svg, coverage.svg   and coverage-<component>.svg, flag-<flag>.svg
   data/meta.json                   schema version, generator
   data/index.json                  one row per stored run (charts, run list)
@@ -233,32 +258,32 @@ full clones of your repo. That's why the data is kept compact.
 
 ## Inputs
 
-| Input                                 | Default                 | Description                                                                         |
-| ------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------- |
+| Input                                 | Default                 | Description                                                                        |
+| ------------------------------------- | ----------------------- | ---------------------------------------------------------------------------------- |
 | `tests`                               |                         | Result files or dirs to read in this job (globs, one per line). Single-job setups. |
-| `test-format`                         | `auto`                  | Force `junit`, `ctrf` or `allure`.                                                  |
-| `coverage`                            |                         | Coverage reports to read in this job (globs). Single-job setups.                    |
-| `coverage-format`                     | `auto`                  | Force `lcov` or `cobertura`.                                                        |
-| `flags`                               |                         | Labels for the results and coverage read in this job.                               |
-| `components`                          | one per language        | `Name: glob, glob` per line. See [Coverage](#coverage).                             |
-| `carryforward`                        | `false`                 | `true`, or the flags to carry forward when missing.                                 |
-| `patch-coverage`                      | `true`                  | Coverage of the changed lines, on PRs and pushes.                                   |
-| `detail-window`                       | `50`                    | Runs whose line-level coverage is kept.                                             |
-| `download-artifacts`                  | `true`                  | Merge in the `collect` uploads from this run.                                       |
-| `repo`                                | this repo               | Repo holding the stats branch.                                                      |
-| `branch`                              | `gh-pages`              | Stats branch.                                                                       |
-| `path`                                | `stats`                 | Directory in the branch (`<owner>/<repo>/stats` in another repo).                   |
-| `token`                               | `github.token`          | Token to read and push the stats branch.                                            |
-| `record`                              | `auto`                  | `auto`, `always` or `never`. See above.                                             |
-| `history-window`                      | `30`                    | Runs kept in the per-test history.                                                  |
-| `viewer`                              | `true`                  | Copy the dashboard into the stats directory.                                        |
-| `allow-public-pages-for-private-repo` | `false`                 | See [Privacy](#privacy).                                                            |
-| `fail-on-test-failure`                | `false`                 | Fail this step if any test failed.                                                  |
-| `push-attempts`                       | `6`                     | Push retries after losing a race.                                                   |
-| `create-repo`, `repo-visibility`      | `false`, `public`       | Create a missing `repo`.                                                            |
-| `commit-name`, `commit-email`         | `github-actions[bot]`   | Author of stats commits.                                                            |
-| `commit-message`                      | repo, commit and run id | Commit message.                                                                     |
-| `artifact-prefix`                     | `standalone-stats-`     | Must match `collect`'s.                                                             |
+| `test-format`                         | `auto`                  | Force `junit`, `ctrf` or `allure`.                                                 |
+| `coverage`                            |                         | Coverage reports to read in this job (globs). Single-job setups.                   |
+| `coverage-format`                     | `auto`                  | Force `lcov` or `cobertura`.                                                       |
+| `flags`                               |                         | Labels for the results and coverage read in this job.                              |
+| `components`                          | one per language        | `Name: glob, glob` per line. See [Coverage](#coverage).                            |
+| `carryforward`                        | `false`                 | `true`, or the flags to carry forward when missing.                                |
+| `patch-coverage`                      | `true`                  | Coverage of the changed lines, on PRs and pushes.                                  |
+| `detail-window`                       | `50`                    | Runs whose line-level coverage is kept.                                            |
+| `download-artifacts`                  | `true`                  | Merge in the `collect` uploads from this run.                                      |
+| `repo`                                | this repo               | Repo holding the stats branch.                                                     |
+| `branch`                              | `gh-pages`              | Stats branch.                                                                      |
+| `path`                                | `stats`                 | Directory in the branch (`<owner>/<repo>/stats` in another repo).                  |
+| `token`                               | `github.token`          | Token to read and push the stats branch.                                           |
+| `record`                              | `auto`                  | `auto`, `always` or `never`. See above.                                            |
+| `history-window`                      | `30`                    | Runs kept in the per-test history.                                                 |
+| `viewer`                              | `true`                  | Copy the dashboard into the stats directory.                                       |
+| `allow-public-pages-for-private-repo` | `false`                 | See [Privacy](#privacy).                                                           |
+| `fail-on-test-failure`                | `false`                 | Fail this step if any test failed.                                                 |
+| `push-attempts`                       | `6`                     | Push retries after losing a race.                                                  |
+| `create-repo`, `repo-visibility`      | `false`, `public`       | Create a missing `repo`.                                                           |
+| `commit-name`, `commit-email`         | `github-actions[bot]`   | Author of stats commits.                                                           |
+| `commit-message`                      | repo, commit and run id | Commit message.                                                                    |
+| `artifact-prefix`                     | `standalone-stats-`     | Must match `collect`'s.                                                            |
 
 `collect` takes `tests` and/or `coverage` (globs), `test-format`,
 `coverage-format`, `flags`, `id` (only if one job runs `collect` twice),
@@ -266,37 +291,42 @@ full clones of your repo. That's why the data is kept compact.
 
 ## Outputs
 
-| Output                                                      | Description                                         |
-| ----------------------------------------------------------- | --------------------------------------------------- |
-| `site-url`                                                  | Dashboard URL.                                      |
-| `badge-url`, `badge-markdown`                               | Tests badge, and README Markdown for it.            |
-| `site-dir`                                                  | Local copy of the stats directory (when recorded).  |
-| `recorded`                                                  | `true` if this run was stored.                      |
-| `run-key`                                                   | `<run id>-<attempt>`.                               |
-| `tests-total`, `tests-passed`, `tests-failed`, `tests-skipped` | Counts, summed over jobs.                        |
-| `new-failures`                                              | Tests failing now that weren't in the baseline run. |
-| `coverage-lines`, `coverage-branches`, `coverage-patch`     | Percent, two decimals; empty when there's none.     |
-| `coverage-badge-url`, `coverage-badge-markdown`             | Coverage badge, and README Markdown for it.         |
+| Output                                                         | Description                                         |
+| -------------------------------------------------------------- | --------------------------------------------------- |
+| `site-url`                                                     | Dashboard URL.                                      |
+| `badge-url`, `badge-markdown`                                  | Tests badge, and README Markdown for it.            |
+| `site-dir`                                                     | Local copy of the stats directory (when recorded).  |
+| `recorded`                                                     | `true` if this run was stored.                      |
+| `run-key`                                                      | `<run id>-<attempt>`.                               |
+| `tests-total`, `tests-passed`, `tests-failed`, `tests-skipped` | Counts, summed over jobs.                           |
+| `new-failures`                                                 | Tests failing now that weren't in the baseline run. |
+| `coverage-lines`, `coverage-branches`, `coverage-patch`        | Percent, two decimals; empty when there's none.     |
+| `coverage-badge-url`, `coverage-badge-markdown`                | Coverage badge, and README Markdown for it.         |
 
 ## Roadmap
 
-1. **A real dashboard.** Coverage tree and per-line view, trends per flag and
-   component, test history, run comparison.
-2. **PR comments**, including from forks (a `workflow_run` companion), and
+1. **PR comments**, including from forks (a `workflow_run` companion), and
    coverage thresholds.
+2. **Dashboard**: compare two runs side by side; highlight a PR's changed lines
+   in the per-line view.
 3. More inputs: TRX, TAP, JaCoCo XML, Istanbul JSON, LLVM JSON.
 
 ## Development
 
 ```bash
 bun install
-bun run lint     # tsc --noEmit
-bun test         # unit + integration tests (uses local bare git repos)
-bun run build    # bundles dist/ (committed: GitHub runs it directly)
+bun run lint         # tsc --noEmit (action, dashboard, e2e)
+bun run test         # unit + integration tests (uses local bare git repos)
+bun run build        # bundles dist/ (committed: GitHub runs it directly)
+bun run viewer:demo  # writes demo stats (real pipeline, seeded) to viewer/.demo
+bun run viewer:dev   # dashboard dev server over viewer/.demo (or STATS_DIR)
+bun run e2e          # Playwright, headless: built dashboard over the demo data
 ```
 
 `dist/publish/main.js` (the action) and `dist/collect/main.js` share a chunk in
-`dist/chunks/`, and the dashboard is copied to `dist/viewer/`. This repo's CI
+`dist/chunks/`. The dashboard (`viewer/`, React + Vite) builds into
+`dist/viewer/` and imports the coverage model from `src/`, so it merges line
+detail exactly the way publishing does. This repo's CI
 runs both actions on itself, so the badge above is the action's own test run.
 Design notes are in [`plans/design-recommendation.md`](plans/design-recommendation.md).
 

@@ -1017,8 +1017,10 @@ async function applyRun(root, record, tests, opts) {
   if (newestCov)
     await writeCoverageBadges(join2(root, "badges"), newestCov);
   await pruneDetail(root, index, opts.detailWindow ?? 50);
-  if (opts.viewerDir && existsSync(opts.viewerDir))
+  if (opts.viewerDir && existsSync(opts.viewerDir)) {
+    await rm2(join2(root, "assets"), { recursive: true, force: true });
     await cp(opts.viewerDir, root, { recursive: true, force: true });
+  }
   return index;
 }
 async function writeCoverageBadges(dir, c) {

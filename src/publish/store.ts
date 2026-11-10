@@ -228,8 +228,12 @@ export async function applyRun(
 
   await pruneDetail(root, index, opts.detailWindow ?? 50);
 
-  if (opts.viewerDir && existsSync(opts.viewerDir))
+  if (opts.viewerDir && existsSync(opts.viewerDir)) {
+    // Asset names are content-hashed; drop the previous version's so they
+    // don't pile up on the branch.
+    await rm(join(root, 'assets'), { recursive: true, force: true });
     await cp(opts.viewerDir, root, { recursive: true, force: true });
+  }
 
   return index;
 }
