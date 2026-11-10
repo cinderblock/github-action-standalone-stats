@@ -31,8 +31,10 @@ per-component breakdowns, carryforward and patch coverage on pull requests.
   new failures, fixed tests, per-job counts, the coverage change and patch
   coverage. That works for fork PRs too, because it doesn't need write access.
 - Publishes a dashboard and SVG badges (tests, coverage, and one per
-  component and flag). The dashboard is a small static app that reads the
-  JSON directly; see [Dashboard](#dashboard).
+  component and flag). The tests badge counts each test once, so a test run on
+  3 OSes shows as 1, and fails the badge if it fails on any of them. The
+  dashboard is a small static app that reads the JSON directly; see
+  [Dashboard](#dashboard).
 
 ## Quick start: one job
 

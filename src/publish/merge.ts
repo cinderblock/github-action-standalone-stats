@@ -121,6 +121,13 @@ export function buildRecord(
   }
   failures.sort((a, b) => a.id.localeCompare(b.id));
 
+  const byTest = emptyTotals();
+  for (const m of tests.values()) {
+    byTest.total++;
+    byTest[m.status]++;
+    byTest.durationMs += m.durationMs;
+  }
+
   const record: RunRecord = {
     schema: SCHEMA,
     key: `${ctx.run.id}-${ctx.run.attempt}`,
@@ -131,6 +138,7 @@ export function buildRecord(
     tests: {
       totals,
       unique: tests.size,
+      byTest,
       flaky: [...tests.values()].filter(t => t.flaky).length,
       failures,
       failuresTruncated: failing > failures.length,

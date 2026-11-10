@@ -42,13 +42,16 @@ export function renderBadge(
   label: string,
   message: string,
   color: string,
+  /** Extra text for the accessible name and SVG tooltip only. */
+  detail?: string,
 ): string {
   const lw = textWidth(label) + 10;
   const mw = textWidth(message) + 10;
   const w = lw + mw;
   const l = escape(label);
   const m = escape(message);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="20" role="img" aria-label="${l}: ${m}"><title>${l}: ${m}</title><linearGradient id="s" x2="0" y2="100%"><stop offset="0" stop-color="#bbb" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient><clipPath id="r"><rect width="${w}" height="20" rx="3" fill="#fff"/></clipPath><g clip-path="url(#r)"><rect width="${lw}" height="20" fill="#555"/><rect x="${lw}" width="${mw}" height="20" fill="${color}"/><rect width="${w}" height="20" fill="url(#s)"/></g><g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110"><text aria-hidden="true" x="${lw * 5}" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)">${l}</text><text x="${lw * 5}" y="140" transform="scale(.1)">${l}</text><text aria-hidden="true" x="${(lw + mw / 2) * 10}" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)">${m}</text><text x="${(lw + mw / 2) * 10}" y="140" transform="scale(.1)">${m}</text></g></svg>`;
+  const name = detail ? `${l}: ${m} (${escape(detail)})` : `${l}: ${m}`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="20" role="img" aria-label="${name}"><title>${name}</title><linearGradient id="s" x2="0" y2="100%"><stop offset="0" stop-color="#bbb" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient><clipPath id="r"><rect width="${w}" height="20" rx="3" fill="#fff"/></clipPath><g clip-path="url(#r)"><rect width="${lw}" height="20" fill="#555"/><rect x="${lw}" width="${mw}" height="20" fill="${color}"/><rect width="${w}" height="20" fill="url(#s)"/></g><g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110"><text aria-hidden="true" x="${lw * 5}" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)">${l}</text><text x="${lw * 5}" y="140" transform="scale(.1)">${l}</text><text aria-hidden="true" x="${(lw + mw / 2) * 10}" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)">${m}</text><text x="${(lw + mw / 2) * 10}" y="140" transform="scale(.1)">${m}</text></g></svg>`;
 }
 
 export interface TestBadgeInput {
@@ -59,19 +62,32 @@ export interface TestBadgeInput {
   total: number;
 }
 
-export function testsBadge(t: TestBadgeInput): string {
+/**
+ * `t` counts each distinct test once. `results`, when given, is the sum over
+ * every job (a test on 3 OSes counts 3 times); it only goes in the tooltip,
+ * so the badge doesn't grow every time a matrix job is added.
+ */
+export function testsBadge(
+  t: TestBadgeInput,
+  results?: Pick<TestBadgeInput, 'total'>,
+): string {
   const bad = t.failed + t.errored;
+  const detail =
+    results && results.total !== t.total
+      ? `${results.total} results across jobs`
+      : undefined;
   if (t.total === 0) return renderBadge('tests', 'none', COLORS.grey);
   if (bad)
     return renderBadge(
       'tests',
       `${bad} failing, ${t.passed} passing`,
       COLORS.red,
+      detail,
     );
   const msg = t.skipped
     ? `${t.passed} passing, ${t.skipped} skipped`
     : `${t.passed} passing`;
-  return renderBadge('tests', msg, COLORS.green);
+  return renderBadge('tests', msg, COLORS.green, detail);
 }
 
 export function coverageColor(percent: number): string {

@@ -215,8 +215,10 @@ error, not a code failure; the next master run was green on all OSes.
 
 ## Open questions for the user
 
-1. **Badge count:** the tests badge sums results across matrix jobs (150 = 50 × 3 OSes). Show
-   unique tests instead ("50 passing · 3 jobs")? Recommended: unique tests, jobs in the tooltip.
+1. ~~Badge count~~: answered 2026-11-10 ("i trust your rec"). The badge counts each distinct test
+   once by its worst status (`byTest`, stored per run and in the index); the per-job result sum
+   goes in the SVG's accessible name only. Older index entries without `byTest` fall back to the
+   sum.
 
 Answered with a plain "yes" on 2026-11-08 alongside the merge, taken as accepting both
 recommendations (Cameron may correct): viewer is React 19 + Vite built at dev time; no own

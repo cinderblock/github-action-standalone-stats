@@ -146,6 +146,9 @@ export interface RunRecord {
     totals: TestTotals;
     /** Distinct test ids. */
     unique: number;
+    /** One count per distinct test, by its worst status across uploads (a
+     *  test failing on one OS counts once, as failing). Absent before 2026-11. */
+    byTest?: TestTotals;
     flaky: number;
     failures: Failure[];
     /** True if `failures` was capped. */
@@ -200,6 +203,8 @@ export interface IndexEntry {
   url: string;
   tests: TestTotals;
   unique: number;
+  /** See `RunRecord.tests.byTest`. */
+  byTest?: TestTotals;
   flaky: number;
   path: string;
   coverage?: IndexCoverage;

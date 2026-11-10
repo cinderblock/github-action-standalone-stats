@@ -721,6 +721,12 @@ function buildRecord(uploads, ctx) {
     failures.push(f);
   }
   failures.sort((a, b) => a.id.localeCompare(b.id));
+  const byTest = emptyTotals();
+  for (const m of tests.values()) {
+    byTest.total++;
+    byTest[m.status]++;
+    byTest.durationMs += m.durationMs;
+  }
   const record = {
     schema: SCHEMA,
     key: `${ctx.run.id}-${ctx.run.attempt}`,
@@ -731,6 +737,7 @@ function buildRecord(uploads, ctx) {
     tests: {
       totals,
       unique: tests.size,
+      byTest,
       flaky: [...tests.values()].filter((t) => t.flaky).length,
       failures,
       failuresTruncated: failing > failures.length
@@ -828,22 +835,24 @@ var COLORS = {
   red: "#c62828",
   grey: "#6e6e6e"
 };
-function renderBadge(label, message, color) {
+function renderBadge(label, message, color, detail) {
   const lw = textWidth(label) + 10;
   const mw = textWidth(message) + 10;
   const w = lw + mw;
   const l = escape(label);
   const m = escape(message);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="20" role="img" aria-label="${l}: ${m}"><title>${l}: ${m}</title><linearGradient id="s" x2="0" y2="100%"><stop offset="0" stop-color="#bbb" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient><clipPath id="r"><rect width="${w}" height="20" rx="3" fill="#fff"/></clipPath><g clip-path="url(#r)"><rect width="${lw}" height="20" fill="#555"/><rect x="${lw}" width="${mw}" height="20" fill="${color}"/><rect width="${w}" height="20" fill="url(#s)"/></g><g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110"><text aria-hidden="true" x="${lw * 5}" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)">${l}</text><text x="${lw * 5}" y="140" transform="scale(.1)">${l}</text><text aria-hidden="true" x="${(lw + mw / 2) * 10}" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)">${m}</text><text x="${(lw + mw / 2) * 10}" y="140" transform="scale(.1)">${m}</text></g></svg>`;
+  const name = detail ? `${l}: ${m} (${escape(detail)})` : `${l}: ${m}`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="20" role="img" aria-label="${name}"><title>${name}</title><linearGradient id="s" x2="0" y2="100%"><stop offset="0" stop-color="#bbb" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient><clipPath id="r"><rect width="${w}" height="20" rx="3" fill="#fff"/></clipPath><g clip-path="url(#r)"><rect width="${lw}" height="20" fill="#555"/><rect x="${lw}" width="${mw}" height="20" fill="${color}"/><rect width="${w}" height="20" fill="url(#s)"/></g><g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110"><text aria-hidden="true" x="${lw * 5}" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)">${l}</text><text x="${lw * 5}" y="140" transform="scale(.1)">${l}</text><text aria-hidden="true" x="${(lw + mw / 2) * 10}" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)">${m}</text><text x="${(lw + mw / 2) * 10}" y="140" transform="scale(.1)">${m}</text></g></svg>`;
 }
-function testsBadge(t) {
+function testsBadge(t, results) {
   const bad = t.failed + t.errored;
+  const detail = results && results.total !== t.total ? `${results.total} results across jobs` : undefined;
   if (t.total === 0)
     return renderBadge("tests", "none", COLORS.grey);
   if (bad)
-    return renderBadge("tests", `${bad} failing, ${t.passed} passing`, COLORS.red);
+    return renderBadge("tests", `${bad} failing, ${t.passed} passing`, COLORS.red, detail);
   const msg = t.skipped ? `${t.passed} passing, ${t.skipped} skipped` : `${t.passed} passing`;
-  return renderBadge("tests", msg, COLORS.green);
+  return renderBadge("tests", msg, COLORS.green, detail);
 }
 function coverageColor(percent) {
   if (percent >= 90)
@@ -899,6 +908,8 @@ function entryOf(record, path) {
     flaky: record.tests.flaky,
     path
   };
+  if (record.tests.byTest)
+    e.byTest = record.tests.byTest;
   if (record.commit.branch)
     e.branch = record.commit.branch;
   const cov = record.coverage;
@@ -1012,7 +1023,7 @@ async function applyRun(root, record, tests, opts) {
   });
   const newest = index.runs[index.runs.length - 1];
   await mkdir(join2(root, "badges"), { recursive: true });
-  await writeFile(join2(root, "badges", "tests.svg"), testsBadge(newest.tests));
+  await writeFile(join2(root, "badges", "tests.svg"), testsBadge(newest.byTest ?? newest.tests, newest.byTest && newest.tests));
   const newestCov = [...index.runs].reverse().find((r) => r.coverage)?.coverage;
   if (newestCov)
     await writeCoverageBadges(join2(root, "badges"), newestCov);

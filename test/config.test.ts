@@ -150,6 +150,12 @@ describe('badges and URLs', () => {
     expect(
       testsBadge({ total: 1, passed: 1, failed: 0, errored: 0, skipped: 0 }),
     ).toContain('#2e7d32');
+    const svg = testsBadge(
+      { total: 99, passed: 99, failed: 0, errored: 0, skipped: 0 },
+      { total: 286 },
+    );
+    expect(svg).toContain('>99 passing<');
+    expect(svg).toContain('aria-label="tests: 99 passing (286 results across jobs)"');
   });
   it('measures wide text wider', () => {
     expect(textWidth('mmm')).toBeGreaterThan(textWidth('iii'));

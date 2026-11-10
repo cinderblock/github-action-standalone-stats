@@ -63,6 +63,7 @@ function entryOf(record: RunRecord, path: string): IndexEntry {
     flaky: record.tests.flaky,
     path,
   };
+  if (record.tests.byTest) e.byTest = record.tests.byTest;
   if (record.commit.branch) e.branch = record.commit.branch;
   const cov = record.coverage;
   if (cov) {
@@ -222,7 +223,10 @@ export async function applyRun(
   // run that publishes after a newer one mustn't roll the badge back.
   const newest = index.runs[index.runs.length - 1]!;
   await mkdir(join(root, 'badges'), { recursive: true });
-  await writeFile(join(root, 'badges', 'tests.svg'), testsBadge(newest.tests));
+  await writeFile(
+    join(root, 'badges', 'tests.svg'),
+    testsBadge(newest.byTest ?? newest.tests, newest.byTest && newest.tests),
+  );
   const newestCov = [...index.runs].reverse().find(r => r.coverage)?.coverage;
   if (newestCov) await writeCoverageBadges(join(root, 'badges'), newestCov);
 

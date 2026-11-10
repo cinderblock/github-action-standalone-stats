@@ -192,6 +192,14 @@ describe('buildRecord', () => {
       skipped: 1,
     });
     expect(record.tests.unique).toBe(4);
+    // Each test once, by its worst status: a errored, b failed, c skipped, d passed.
+    expect(record.tests.byTest).toMatchObject({
+      total: 4,
+      passed: 1,
+      failed: 1,
+      errored: 1,
+      skipped: 1,
+    });
     expect(record.tests.flaky).toBe(1);
     expect(
       record.tests.failures.map(f => [f.name, f.status, f.uploads, f.message]),
