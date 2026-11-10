@@ -50,7 +50,11 @@ function addGroup(groups: Map<string, Group>, flags: string[], cov: Coverage) {
   const k = groupKey(flags);
   const g = groups.get(k);
   if (g) mergeCoverage(g.cov, cov);
-  else groups.set(k, { flags: [...flags].sort(), cov: mergeCoverage(new Map(), cov) });
+  else
+    groups.set(k, {
+      flags: [...flags].sort(),
+      cov: mergeCoverage(new Map(), cov),
+    });
 }
 
 /**
@@ -87,11 +91,14 @@ export function buildCoverage(
   const merged: Coverage = new Map();
   for (const g of groups.values()) mergeCoverage(merged, g.cov);
 
-  const allFlags = [...new Set([...groups.values()].flatMap(g => g.flags))].sort();
+  const allFlags = [
+    ...new Set([...groups.values()].flatMap(g => g.flags)),
+  ].sort();
   const flags: RunCoverage['flags'] = {};
   for (const f of allFlags) {
     const cov: Coverage = new Map();
-    for (const g of groups.values()) if (g.flags.includes(f)) mergeCoverage(cov, g.cov);
+    for (const g of groups.values())
+      if (g.flags.includes(f)) mergeCoverage(cov, g.cov);
     flags[f] = carried.has(f) ? { ...totals(cov), carried: true } : totals(cov);
   }
 
@@ -99,7 +106,10 @@ export function buildCoverage(
   const names = [...new Set([...assignment.values()].flat())].sort();
   const components: RunCoverage['components'] = {};
   for (const name of names)
-    components[name] = totals(merged, p => assignment.get(p)?.includes(name) ?? false);
+    components[name] = totals(
+      merged,
+      p => assignment.get(p)?.includes(name) ?? false,
+    );
 
   const detail = detailPath(o.key);
   const coverage: RunCoverage = {
