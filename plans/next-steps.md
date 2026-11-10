@@ -63,8 +63,8 @@ Order of work, as Cameron set it:
    Allure generation removed, dogfood on this repo's CI.
 3. ✅ Phase 2, coverage: lcov + Cobertura, path normalization, Codecov-style merge, flags,
    components, carryforward, patch coverage, coverage badges.
-4. ▶ **(current)** Phase 3, viewer SPA: built, in review as a PR.
-5. Phase 4, PR comments (`workflow_run` companion), thresholds.
+4. ✅ Phase 3, viewer SPA: React + Vite dashboard (runs, tests, coverage tree, per-line view).
+5. ▶ **(next, needs a go-ahead)** Phase 4, PR comments (`workflow_run` companion), thresholds.
 6. Release as a set with the two sibling actions (needs a yes).
 
 ### Phase 2 design (decided while building, 2026-11-08)
@@ -201,7 +201,17 @@ Order of work, as Cameron set it:
 - [x] Phase 3 dashboard built (branch `phase-3`): overview, runs, run, tests, test, coverage
   tree and per-line pages; demo data generator; unit tests (`test/viewer.test.ts`); Playwright
   e2e on desktop and phone sizes (21 pass); CI `dashboard` job; README section
-- [ ] Phase 3 PR green and merged (needs Cameron's yes)
+- [x] Phase 3 PR #26 green on all 6 checks; squash-merged as `d214827` on Cameron's yes
+  (2026-11-10)
+- [x] First master run with the dashboard (run 42909588933, Nov 10 1:55 PM PST (21:55Z)): all
+  jobs green, `gh-pages@8c9d326`, live at
+  https://cinderblock.github.io/github-action-standalone-stats/stats/; checked headless: overview,
+  runs, tests and coverage render real data with no console errors
+- [ ] Phase 4: PR comments and thresholds (needs a go-ahead)
+
+Note: the master run on `2c77ef7` (Nov 8 11:35 PM PST (07:35Z Nov 9)) failed only on macOS with
+`Unexpected HTTP response: 504` during setup, before any test ran. Transient runner-side download
+error, not a code failure; the next master run was green on all OSes.
 
 ## Open questions for the user
 
