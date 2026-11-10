@@ -64,8 +64,8 @@ Order of work, as Cameron set it:
 3. ✅ Phase 2, coverage: lcov + Cobertura, path normalization, Codecov-style merge, flags,
    components, carryforward, patch coverage, coverage badges.
 4. ✅ Phase 3, viewer SPA: React + Vite dashboard (runs, tests, coverage tree, per-line view).
-5. ▶ **(current)** Phase 4, PR comments (`workflow_run` companion), thresholds. Branch `phase-4`.
-6. Release as a set with the two sibling actions (needs a yes).
+5. ✅ Phase 4, PR comments (`workflow_run` companion), thresholds (`8cfa15b`).
+6. ▶ **(current)** Release as a set with the two sibling actions (confirming scope).
 
 ### Phase 2 design (decided while building, 2026-11-08)
 
@@ -266,8 +266,12 @@ failed step; the same-repo comment first, then the `workflow_run` companion in t
 - [x] Phase 4 PR #27 green (9 checks), live on the PR (Nov 10, ~3:30 PM PST (~23:30Z)). The
   companion job posted the comment and both statuses. A second push edited the same comment
   (still 1 comment). Polish from the first live run is in `1232dc2`.
-- [ ] Merge PR #27 (needs Cameron's yes). After that, the fork path (`stats-comment.yml`, a
-  `workflow_run` trigger) can run for the first time. It only fires from the default branch.
+- [x] PR #27 squash-merged as `8cfa15b` on Cameron's yes (2026-11-10). The master run
+  (42926631158) is green on all 7 jobs and posted both statuses on `8cfa15b`, linking the
+  dashboard's run page. `Stats comment` is registered and correctly skipped the same-repo run. A
+  real fork PR is the only path not exercised yet.
+- [ ] Release as a set with the sibling actions: Cameron answered "yes" twice on 2026-11-10;
+  confirming that the second covers the release and its scope before tagging anything.
 
 Note: the master run on `2c77ef7` (Nov 8 11:35 PM PST (07:35Z Nov 9)) failed only on macOS with
 `Unexpected HTTP response: 504` during setup, before any test ran. Transient runner-side download
