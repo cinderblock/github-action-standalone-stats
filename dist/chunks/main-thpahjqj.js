@@ -67308,7 +67308,15 @@ function buildAttributesMap(attrStr, jPath, tagName, force = false) {
   }
 }
 var parseXml = function(xmlData) {
-  xmlData = xmlData.replace(/\r\n?/g, `
+  const options = this.options;
+  const crlfPositions = options.captureMetaData ? [] : undefined;
+  xmlData = xmlData.replace(/\r\n?/g, options.captureMetaData ? (newline, index) => {
+    if (newline.length === 2) {
+      crlfPositions.push(index - crlfPositions.length);
+    }
+    return `
+`;
+  } : `
 `);
   const xmlObj = new XmlNode("!xml");
   let currentNode = xmlObj;
@@ -67318,7 +67326,6 @@ var parseXml = function(xmlData) {
   this.entityExpansionCount = 0;
   this.currentExpandedLength = 0;
   this.doctypefound = false;
-  const options = this.options;
   const docTypeReader = new DocTypeReader(options.processEntities);
   const xmlLen = xmlData.length;
   for (let i = 0;i < xmlLen; i++) {
@@ -67350,7 +67357,7 @@ var parseXml = function(xmlData) {
         this.isCurrentNodeStopNode = false;
         currentNode = this.tagsNodeStack.pop() || xmlObj;
         if (options.captureMetaData && currentNode) {
-          currentNode.addEndIndex(closeIndex + 1);
+          currentNode.addEndIndex(getOriginalIndex(closeIndex + 1, crlfPositions));
         }
         textData = "";
         i = closeIndex;
@@ -67371,9 +67378,10 @@ var parseXml = function(xmlData) {
           if (tagData.tagName !== tagData.tagExp && tagData.attrExpPresent && options.ignoreAttributes !== true) {
             childNode[":@"] = attsMap;
           }
-          this.addChild(currentNode, childNode, this.readonlyMatcher, i);
+          const startIndex = options.captureMetaData ? getOriginalIndex(i, crlfPositions) : i;
+          this.addChild(currentNode, childNode, this.readonlyMatcher, startIndex);
           if (options.captureMetaData) {
-            currentNode.addEndIndex(tagData.closeIndex + 2);
+            currentNode.addEndIndex(getOriginalIndex(tagData.closeIndex + 2, crlfPositions));
           }
         }
         i = tagData.closeIndex + 1;
@@ -67457,7 +67465,7 @@ var parseXml = function(xmlData) {
         if (tagName !== xmlObj.tagname) {
           this.isCurrentNodeStopNode = this.isItStopNode();
         }
-        const startIndex = i;
+        const startIndex = options.captureMetaData ? getOriginalIndex(i, crlfPositions) : i;
         if (this.isCurrentNodeStopNode) {
           let tagContent = "";
           if (isSelfClosing) {
@@ -67480,7 +67488,7 @@ var parseXml = function(xmlData) {
           this.isCurrentNodeStopNode = false;
           this.addChild(currentNode, childNode, this.readonlyMatcher, startIndex);
           if (options.captureMetaData) {
-            currentNode.addEndIndex(i + 1);
+            currentNode.addEndIndex(getOriginalIndex(i + 1, crlfPositions));
           }
         } else {
           if (isSelfClosing) {
@@ -67491,7 +67499,7 @@ var parseXml = function(xmlData) {
             }
             this.addChild(currentNode, childNode, this.readonlyMatcher, startIndex);
             if (options.captureMetaData) {
-              currentNode.addEndIndex(closeIndex + 1);
+              currentNode.addEndIndex(getOriginalIndex(closeIndex + 1, crlfPositions));
             }
             this.matcher.pop();
             this.isCurrentNodeStopNode = false;
@@ -67502,7 +67510,7 @@ var parseXml = function(xmlData) {
             }
             this.addChild(currentNode, childNode, this.readonlyMatcher, startIndex);
             if (options.captureMetaData) {
-              currentNode.addEndIndex(result.closeIndex + 1);
+              currentNode.addEndIndex(getOriginalIndex(result.closeIndex + 1, crlfPositions));
             }
             this.matcher.pop();
             this.isCurrentNodeStopNode = false;
@@ -67530,6 +67538,18 @@ var parseXml = function(xmlData) {
   }
   return xmlObj.child;
 };
+function getOriginalIndex(index, crlfPositions) {
+  let low = 0;
+  let high = crlfPositions.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (crlfPositions[middle] < index)
+      low = middle + 1;
+    else
+      high = middle;
+  }
+  return index + low;
+}
 function addChild(currentNode, childNode, matcher, startIndex) {
   if (!this.options.captureMetaData)
     startIndex = undefined;
@@ -67654,6 +67674,8 @@ function readTagExp(xmlData, i, removeNSPrefix, closingChar = ">") {
 function readStopNodeData(xmlData, tagName, i) {
   const startIndex = i;
   let openTagCount = 1;
+  let lenient = false;
+  let nextGt = -1;
   const xmllen = xmlData.length;
   for (;i < xmllen; i++) {
     if (xmlData[i] === "<") {
@@ -67681,13 +67703,29 @@ function readStopNodeData(xmlData, tagName, i) {
         const closeIndex = findClosingIndex(xmlData, "]]>", i, "StopNode is not closed.") - 2;
         i = closeIndex;
       } else {
-        const tagData = readTagExp(xmlData, i, false);
+        const tagData = lenient ? undefined : readTagExp(xmlData, i, false);
         if (tagData) {
-          const openTagName = tagData && tagData.tagName;
+          const openTagName = tagData.tagName;
           if (openTagName === tagName && tagData.tagExp[tagData.tagExp.length - 1] !== "/") {
             openTagCount++;
           }
           i = tagData.closeIndex;
+        } else {
+          lenient = true;
+          if (nextGt < i) {
+            nextGt = xmlData.indexOf(">", i);
+            if (nextGt === -1)
+              return;
+          }
+          const nextLt = xmlData.indexOf("<", i + 1);
+          if (nextLt === -1 || nextLt > nextGt) {
+            const exp = xmlData.substring(i + 1, nextGt);
+            const sep = exp.search(/\s/);
+            const name = sep === -1 ? exp : exp.substring(0, sep);
+            if (name === tagName && exp[exp.length - 1] !== "/")
+              openTagCount++;
+            i = nextGt;
+          }
         }
       }
     }

@@ -6,7 +6,7 @@ import {
   error,
   warning,
   info
-} from "../chunks/main-9x83tt5p.js";
+} from "../chunks/main-thpahjqj.js";
 import {
   parseRepo,
   getPages,
@@ -21,7 +21,7 @@ import {
   upsertComment,
   postStatuses,
   downloadReport
-} from "../chunks/main-kzma37y0.js";
+} from "../chunks/main-01ywqfyn.js";
 
 // src/comment/main.ts
 async function run() {

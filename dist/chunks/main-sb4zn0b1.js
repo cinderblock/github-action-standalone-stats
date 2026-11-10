@@ -15,7 +15,7 @@ import {
   encodeCoverage,
   decodeCoverage,
   DefaultArtifactClient
-} from "./main-9x83tt5p.js";
+} from "./main-thpahjqj.js";
 
 // src/coverage/read.ts
 import { existsSync } from "node:fs";
