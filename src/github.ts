@@ -191,11 +191,17 @@ export async function compareDiff(
   opts: ApiOptions,
 ): Promise<Diff | undefined> {
   const files = new Map<string, Set<number>>();
+  const omitted: string[] = [];
   let partial = false;
   let seen = 0;
   for (let page = 1; page <= 3; page++) {
     const { status, body } = await api<{
-      files?: { filename: string; status: string; patch?: string; changes?: number }[];
+      files?: {
+        filename: string;
+        status: string;
+        patch?: string;
+        changes?: number;
+      }[];
     }>(
       'GET',
       `/repos/${ref.owner}/${ref.name}/compare/${encodeURIComponent(base)}...${encodeURIComponent(head)}?per_page=100&page=${page}`,
@@ -216,7 +222,7 @@ export async function compareDiff(
       if (f.status === 'removed') continue;
       if (f.patch === undefined) {
         // Binary, or too large for the API to include.
-        if (f.changes) partial = true;
+        if (f.changes) omitted.push(f.filename);
         continue;
       }
       files.set(f.filename, addedLines(f.patch));
@@ -224,5 +230,152 @@ export async function compareDiff(
     if (list.length < 100) break;
     if (seen >= COMPARE_FILE_CAP) partial = true;
   }
-  return { files, partial };
+  return omitted.length ? { files, partial, omitted } : { files, partial };
+}
+
+/** A write the token isn't allowed to make (read-only token, fork PR, or
+ *  missing `permissions:`), as opposed to a real failure. */
+export class PermissionError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
+function fail(what: string, status: number, body: unknown): never {
+  const msg = (body as { message?: string } | undefined)?.message ?? '';
+  const text = `${what}: status ${status}${msg ? ` (${msg})` : ''}`;
+  // 403 "Resource not accessible by integration" is the read-only token;
+  // 404 is what GitHub says for repos the token can't see at all.
+  if (status === 403 || status === 404) throw new PermissionError(text, status);
+  throw new Error(text);
+}
+
+export interface IssueComment {
+  id: number;
+  body: string;
+  user: { login: string; type: string } | null;
+  html_url: string;
+}
+
+/** Every comment on an issue or PR, oldest first (up to 3,000). */
+export async function listComments(
+  ref: RepoRef,
+  issue: number,
+  opts: ApiOptions,
+): Promise<IssueComment[]> {
+  const out: IssueComment[] = [];
+  for (let page = 1; page <= 30; page++) {
+    const { status, body } = await api<IssueComment[]>(
+      'GET',
+      `/repos/${ref.owner}/${ref.name}/issues/${issue}/comments?per_page=100&page=${page}`,
+      undefined,
+      opts,
+    );
+    if (status !== 200) fail(`Listing comments on #${issue}`, status, body);
+    out.push(...body);
+    if (body.length < 100) break;
+  }
+  return out;
+}
+
+export async function createComment(
+  ref: RepoRef,
+  issue: number,
+  text: string,
+  opts: ApiOptions,
+): Promise<IssueComment> {
+  const { status, body } = await api<IssueComment>(
+    'POST',
+    `/repos/${ref.owner}/${ref.name}/issues/${issue}/comments`,
+    { body: text },
+    opts,
+  );
+  if (status !== 201) fail(`Commenting on #${issue}`, status, body);
+  return body;
+}
+
+export async function updateComment(
+  ref: RepoRef,
+  id: number,
+  text: string,
+  opts: ApiOptions,
+): Promise<IssueComment> {
+  const { status, body } = await api<IssueComment>(
+    'PATCH',
+    `/repos/${ref.owner}/${ref.name}/issues/comments/${id}`,
+    { body: text },
+    opts,
+  );
+  if (status !== 200) fail(`Updating comment ${id}`, status, body);
+  return body;
+}
+
+export async function createStatus(
+  ref: RepoRef,
+  sha: string,
+  s: {
+    context: string;
+    state: 'success' | 'failure' | 'pending' | 'error';
+    description: string;
+    target_url?: string;
+  },
+  opts: ApiOptions,
+): Promise<void> {
+  const { status, body } = await api(
+    'POST',
+    `/repos/${ref.owner}/${ref.name}/statuses/${encodeURIComponent(sha)}`,
+    s,
+    opts,
+  );
+  if (status !== 201) fail(`Setting status ${s.context}`, status, body);
+}
+
+export interface WorkflowRun {
+  id: number;
+  run_attempt: number;
+  event: string;
+  head_sha: string;
+  head_branch: string | null;
+  head_repository: { full_name: string } | null;
+  pull_requests: { number: number }[];
+}
+
+export async function getRun(
+  ref: RepoRef,
+  id: number,
+  opts: ApiOptions,
+): Promise<WorkflowRun> {
+  const { status, body } = await api<WorkflowRun>(
+    'GET',
+    `/repos/${ref.owner}/${ref.name}/actions/runs/${id}`,
+    undefined,
+    opts,
+  );
+  if (status !== 200) fail(`Reading run ${id}`, status, body);
+  return body;
+}
+
+export interface PullRequest {
+  number: number;
+  state: string;
+  head: { sha: string };
+}
+
+export async function getPull(
+  ref: RepoRef,
+  n: number,
+  opts: ApiOptions,
+): Promise<PullRequest | undefined> {
+  const { status, body } = await api<PullRequest>(
+    'GET',
+    `/repos/${ref.owner}/${ref.name}/pulls/${n}`,
+    undefined,
+    opts,
+  );
+  if (status === 404) return undefined;
+  if (status !== 200) fail(`Reading PR #${n}`, status, body);
+  return body;
 }

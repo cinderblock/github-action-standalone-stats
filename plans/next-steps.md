@@ -64,7 +64,7 @@ Order of work, as Cameron set it:
 3. ✅ Phase 2, coverage: lcov + Cobertura, path normalization, Codecov-style merge, flags,
    components, carryforward, patch coverage, coverage badges.
 4. ✅ Phase 3, viewer SPA: React + Vite dashboard (runs, tests, coverage tree, per-line view).
-5. ▶ **(next, needs a go-ahead)** Phase 4, PR comments (`workflow_run` companion), thresholds.
+5. ▶ **(current)** Phase 4, PR comments (`workflow_run` companion), thresholds. Branch `phase-4`.
 6. Release as a set with the two sibling actions (needs a yes).
 
 ### Phase 2 design (decided while building, 2026-11-08)
@@ -119,7 +119,59 @@ Order of work, as Cameron set it:
 - **E2E:** Playwright (headless Chromium) loads the built viewer over the demo data and checks
   every route renders with no console errors. Separate CI job.
 
+### Phase 4 design (Cameron: "I like it. do it", 2026-11-10)
+
+Cameron accepted three recommendations: one sticky comment edited in place, which shrinks to one
+line when nothing changed; thresholds off by default and reported as commit statuses rather than a
+failed step; the same-repo comment first, then the `workflow_run` companion in the same phase.
+
+- **Inputs on publish:**
+  - `comment`: `auto` (default), `artifact` or `never`.
+    - `auto` posts directly when the token can. On a fork PR, or on a 403, it hands off to the
+      companion through an artifact.
+    - `artifact` always hands off. Use it when the CI token is read-only.
+  - `thresholds`: one rule per line, `name: number`. The names are `total`, `branches`, `patch`,
+    `drop` (maximum points below the baseline), `component <name>` and `flag <name>`.
+  - `threshold-status` (default true): post commit statuses.
+  - `fail-on-threshold` (default false): fail the step instead.
+- **Statuses:** `standalone-stats/coverage` covers total, branches, drop, components and flags.
+  `standalone-stats/patch` covers patch. These mirror `codecov/project` and `codecov/patch`. A group
+  is posted only when it has a rule. A rule with no data (no patch, a missing component) is skipped,
+  not failed. The target URL is the dashboard.
+- **Comment:** marker `<!-- standalone-stats:<workflow> run=<id>-<attempt> -->`.
+  - Updates the oldest Bot comment that has the marker. It doesn't overwrite a comment from a
+    newer run id, which a re-run of an old commit would otherwise do.
+  - Body capped at 60k characters.
+  - Shows tests, new failures and fixed tests, the coverage change, and patch coverage with
+    uncovered files. Per-job details are collapsed. Threshold results come first.
+  - When nothing changed: one line plus thresholds.
+- **Companion:** `comment/action.yml`, run from a `workflow_run` workflow. Its `run-id` defaults to
+  the triggering run.
+  - It reads the run from the API (trusted head sha and event) and downloads the
+    `standalone-stats-comment` artifact from it.
+  - It validates the payload (schema, size cap, shapes), verifies the PR number against the run's
+    head sha (`workflow_run.pull_requests` is empty for forks), then posts the comment and statuses.
+  - Payload links are kept only for https `*.github.io` or this repo's Pages host. Its own
+    `thresholds` input overrides the payload's.
+- **Trust:** a fork controls its own workflow, so its numbers can be forged. That's true of every CI
+  coverage tool. The companion makes sure a fork can't target another PR or another sha, can't
+  inject markdown or links, and that nothing from it is ever executed. The README says that fork
+  thresholds are advisory.
+- **Dogfood:** CI `stats` uses `comment: artifact`. A `comment` job runs `./comment` with
+  `run-id: ${{ github.run_id }}`, so the companion path runs live on this PR. A `workflow_run`
+  trigger only fires from the default branch, so the real template can't run before merge.
+  `thresholds` in CI: `total: 80`, `patch: 60`, `drop: 2`.
+
 ## Findings / gotchas
+
+- **The compare API omits patches for big files** (this repo's committed `dist/` bundles), which
+  marked every PR's patch coverage "diff incomplete". Now only an omitted file that has coverage
+  makes it incomplete (`Diff.omitted`).
+- **Threshold math should use the floored percentages people see.** With exact values the drop
+  rule said +1.47 pts beside a headline of +1.48 pts.
+- **`workflow_run` only triggers from the default branch**, so a fork companion can't be tested in
+  its own PR. CI runs the same companion as a job in the same run (`run-id: github.run_id`), which
+  exercises the artifact path live.
 
 - **The current design double-counts.** `main.ts` unions every run's raw `*-result.json` into the
   `allure-data` branch forever, then runs `allure generate` on the whole pile. Only `history/`
@@ -207,7 +259,15 @@ Order of work, as Cameron set it:
   jobs green, `gh-pages@8c9d326`, live at
   https://cinderblock.github.io/github-action-standalone-stats/stats/; checked headless: overview,
   runs, tests and coverage render real data with no console errors
-- [ ] Phase 4: PR comments and thresholds (needs a go-ahead)
+- [x] Phase 4 built (branch `phase-4`, `4befccb`): `src/thresholds.ts`, `src/report.ts`
+  (payload, sanitizer, comment), `src/post.ts` (upsert, statuses, artifact hand-off),
+  `src/comment/main.ts` + `comment/action.yml`, publish wiring, CI `comment` job +
+  `stats-comment.yml`, README section, `test/report.test.ts` (102 tests pass). PR #27.
+- [x] Phase 4 PR #27 green (9 checks), live on the PR (Nov 10, ~3:30 PM PST (~23:30Z)). The
+  companion job posted the comment and both statuses. A second push edited the same comment
+  (still 1 comment). Polish from the first live run is in `1232dc2`.
+- [ ] Merge PR #27 (needs Cameron's yes). After that, the fork path (`stats-comment.yml`, a
+  `workflow_run` trigger) can run for the first time. It only fires from the default branch.
 
 Note: the master run on `2c77ef7` (Nov 8 11:35 PM PST (07:35Z Nov 9)) failed only on macOS with
 `Unexpected HTTP response: 504` during setup, before any test ran. Transient runner-side download

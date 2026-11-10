@@ -253,7 +253,10 @@ async function writeCoverageBadges(dir: string, c: IndexCoverage) {
       coverageBadge(name, pair),
     );
   for (const [name, pair] of Object.entries(c.f ?? {}))
-    await writeFile(join(dir, `flag-${slug(name)}.svg`), coverageBadge(name, pair));
+    await writeFile(
+      join(dir, `flag-${slug(name)}.svg`),
+      coverageBadge(name, pair),
+    );
 }
 
 /** Keep line detail for the newest `window` runs; it's the bulky part. */

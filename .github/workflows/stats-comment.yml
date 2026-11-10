@@ -1,0 +1,27 @@
+# The standalone-stats companion, as a separate workflow: fork PRs run CI
+# with a read-only token, so their stats job can't comment. This runs after
+# CI finishes, in this repo's context with write access, and posts the
+# comment and statuses from the report artifact CI uploaded. The artifact is
+# only ever read as data. Same-repo runs are handled by CI's own `comment`
+# job, so this one skips them.
+name: Stats comment
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+jobs:
+  comment:
+    if: ${{ github.event.workflow_run.head_repository.full_name != github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pull-requests: write
+      statuses: write
+    steps:
+      # Pin to the default branch's code: never check out the PR.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - uses: ./comment

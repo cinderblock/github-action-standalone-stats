@@ -30,6 +30,10 @@ per-component breakdowns, carryforward and patch coverage on pull requests.
 - Pull requests get a **job summary** comparing against the target branch:
   new failures, fixed tests, per-job counts, the coverage change and patch
   coverage. That works for fork PRs too, because it doesn't need write access.
+- And a **PR comment** with the same, edited in place on every push, plus
+  optional **coverage thresholds** reported as commit statuses. Fork PRs get
+  both through a small companion workflow. See
+  [PR comments and thresholds](#pr-comments-and-thresholds).
 - Publishes a dashboard and SVG badges (tests, coverage, and one per
   component and flag). The tests badge counts each test once, so a test run on
   3 OSes shows as 1, and fails the badge if it fails on any of them. The
@@ -172,8 +176,102 @@ target branch and reported in the job summary, but isn't stored. Set
 `record: always` or `never` to override.
 
 Pull requests from forks get a read-only token, so they're never recorded; the
-comparison still works. PR comments from fork PRs need a second,
-`workflow_run`-triggered workflow. That's on the [roadmap](#roadmap).
+comparison still works. Their PR comment comes from a companion workflow; see
+below.
+
+## PR comments and thresholds
+
+On a pull request, the publish step posts one comment per workflow and edits
+it on every push, rather than adding a new one each time:
+
+- threshold results first, when you've set any;
+- tests: passed, failing, new failures and fixed tests against the target
+  branch, each test counted once however many jobs ran it;
+- coverage and its change in points, and patch coverage (how many changed
+  lines ran), with the changed files that have uncovered lines;
+- collapsed details: failure messages, coverage by component and flag, and
+  per-job counts;
+- links to the dashboard and the run.
+
+When nothing changed against the target branch, it's a single line. A re-run
+of an older commit never overwrites a newer run's comment. Test names are
+escaped so they can't `@`-mention anyone or cross-link issues.
+
+The job needs permission to comment:
+
+```yaml
+permissions:
+  contents: write # the stats branch
+  pages: read
+  pull-requests: write # the comment
+  statuses: write # thresholds
+```
+
+`comment: never` turns it off.
+
+### Thresholds
+
+Rules go in `thresholds`, one per line. Each is off unless you set it:
+
+```yaml
+with:
+  thresholds: |
+    total: 80             # line coverage of the whole run, at least 80%
+    patch: 70             # of the lines this PR changed, at least 70% ran
+    drop: 1               # at most 1 point below the target branch
+    branches: 50          # branch coverage
+    component TypeScript: 85
+    flag Windows: 60
+```
+
+Results are posted as commit statuses: `standalone-stats/coverage` for
+everything except patch, and `standalone-stats/patch` for patch. That's the
+same split as Codecov's project and patch checks. Mark them required in branch
+protection to block merging, or leave them informational. A rule with nothing
+to measure, such as `patch` when no coverable lines changed, is skipped rather
+than failed. `fail-on-threshold: true` also fails the step, and
+`threshold-status: false` turns the statuses off. Outputs: `thresholds-passed`
+and `comment-url`.
+
+### Fork pull requests: the companion workflow
+
+A pull request from a fork runs with a read-only token, so it can't comment or
+set statuses. In that case the publish step uploads its report as an artifact
+instead. A second workflow, triggered when CI finishes, runs with your repo's
+token and posts it:
+
+```yaml
+# .github/workflows/stats-comment.yml
+name: Stats comment
+
+on:
+  workflow_run:
+    workflows: [CI] # the name of the workflow that publishes
+    types: [completed]
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pull-requests: write
+      statuses: write
+    steps:
+      - uses: cinderblock/github-action-standalone-stats/comment@v1
+```
+
+The companion never checks out or runs the PR's code. It reads the run from
+the GitHub API, treats the artifact strictly as data (rebuilt field by field,
+size-capped, links limited to GitHub Pages), and only comments on a PR whose
+head commit is that run's head commit. Note that a fork controls its own
+workflow, so its numbers can be faked, which is true of every CI coverage
+tool. Treat thresholds on fork PRs as informational, or set the companion's
+own `thresholds` input so the PR can't choose its rules.
+
+`comment: artifact` uses the companion for every run, not just forks. That's
+useful when your CI's token is read-only and only the companion gets write
+access. This repo's own [CI](.github/workflows/ci.yml) does that, running the
+companion as a job in the same workflow for its own PRs and pushes.
 
 ## Concurrency
 
@@ -286,10 +384,18 @@ full clones of your repo. That's why the data is kept compact.
 | `commit-name`, `commit-email`         | `github-actions[bot]`   | Author of stats commits.                                                           |
 | `commit-message`                      | repo, commit and run id | Commit message.                                                                    |
 | `artifact-prefix`                     | `standalone-stats-`     | Must match `collect`'s.                                                            |
+| `comment`                             | `auto`                  | PR comment: `auto`, `artifact` (always use the companion) or `never`.              |
+| `thresholds`                          |                         | Coverage rules, `name: number` per line. See [Thresholds](#thresholds).            |
+| `threshold-status`                    | `true`                  | Post thresholds as commit statuses.                                                |
+| `fail-on-threshold`                   | `false`                 | Fail this step when a threshold isn't met.                                         |
 
 `collect` takes `tests` and/or `coverage` (globs), `test-format`,
 `coverage-format`, `flags`, `id` (only if one job runs `collect` twice),
 `if-no-files-found` (`warn`), `artifact-prefix` and `retention-days` (`7`).
+
+`comment` (the companion) takes `run-id` (default: the run that triggered the
+`workflow_run`), `token` and `thresholds` (overrides the run's own). Outputs:
+`comment-url`, `thresholds-passed`.
 
 ## Outputs
 
@@ -304,14 +410,14 @@ full clones of your repo. That's why the data is kept compact.
 | `new-failures`                                                 | Tests failing now that weren't in the baseline run. |
 | `coverage-lines`, `coverage-branches`, `coverage-patch`        | Percent, two decimals; empty when there's none.     |
 | `coverage-badge-url`, `coverage-badge-markdown`                | Coverage badge, and README Markdown for it.         |
+| `thresholds-passed`                                            | `true`/`false` when thresholds are set, else empty. |
+| `comment-url`                                                  | The PR comment, when this step posted it.           |
 
 ## Roadmap
 
-1. **PR comments**, including from forks (a `workflow_run` companion), and
-   coverage thresholds.
-2. **Dashboard**: compare two runs side by side; highlight a PR's changed lines
+1. **Dashboard**: compare two runs side by side; highlight a PR's changed lines
    in the per-line view.
-3. More inputs: TRX, TAP, JaCoCo XML, Istanbul JSON, LLVM JSON.
+2. More inputs: TRX, TAP, JaCoCo XML, Istanbul JSON, LLVM JSON.
 
 ## Development
 
@@ -325,11 +431,11 @@ bun run viewer:dev   # dashboard dev server over viewer/.demo (or STATS_DIR)
 bun run e2e          # Playwright, headless: built dashboard over the demo data
 ```
 
-`dist/publish/main.js` (the action) and `dist/collect/main.js` share a chunk in
-`dist/chunks/`. The dashboard (`viewer/`, React + Vite) builds into
+`dist/publish/main.js` (the action), `dist/collect/main.js` and
+`dist/comment/main.js` (the companion) share chunks in `dist/chunks/`. The dashboard (`viewer/`, React + Vite) builds into
 `dist/viewer/` and imports the coverage model from `src/`, so it merges line
 detail exactly the way publishing does. This repo's CI
-runs both actions on itself, so the badge above is the action's own test run.
+runs all three actions on itself, so the badge above is the action's own test run.
 Design notes are in [`plans/design-recommendation.md`](plans/design-recommendation.md).
 
 ## See also

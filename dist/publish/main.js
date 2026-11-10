@@ -17,9 +17,10 @@ import {
   mergeCoverage,
   totals,
   pct,
-  formatPct,
   encodeCoverage,
-  decodeCoverage,
+  decodeCoverage
+} from "../chunks/main-9x83tt5p.js";
+import {
   parseCoverageFormat,
   parseMatrix,
   identity,
@@ -32,7 +33,27 @@ import {
   DEFAULT_PREFIX,
   downloadUploads,
   dedupe
-} from "../chunks/main-g8cm915c.js";
+} from "../chunks/main-t0azgerw.js";
+import {
+  patchCoverage,
+  parseRepo,
+  getRepo,
+  getPages,
+  createRepo,
+  enablePages,
+  defaultPagesUrl,
+  compareDiff,
+  PermissionError,
+  renderSummary,
+  parseThresholds,
+  evaluate,
+  failedRules,
+  buildReport,
+  thresholdLine,
+  upsertComment,
+  postStatuses,
+  uploadReport
+} from "../chunks/main-kzma37y0.js";
 
 // src/publish/main.ts
 import { cp as cp2, mkdir as mkdir2, rm as rm3, writeFile as writeFile2 } from "node:fs/promises";
@@ -179,189 +200,6 @@ async function publishBranch(opts) {
   }
 }
 
-// src/coverage/patch.ts
-function addedLines(patch) {
-  const out = new Set;
-  let line = 0;
-  let inHunk = false;
-  for (const raw of patch.split(`
-`)) {
-    const l = raw.replace(/\r$/, "");
-    const h = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(l);
-    if (h) {
-      line = Number(h[1]);
-      inHunk = true;
-      continue;
-    }
-    if (!inHunk)
-      continue;
-    if (l.startsWith("+"))
-      out.add(line++);
-    else if (l.startsWith("-"))
-      continue;
-    else if (l.startsWith("\\"))
-      continue;
-    else
-      line++;
-  }
-  return out;
-}
-function patchCoverage(cov, diff, base) {
-  const files = [];
-  let hit = 0;
-  let total = 0;
-  for (const [path, lines] of diff.files) {
-    const file = cov.get(path);
-    if (!file)
-      continue;
-    let fh = 0;
-    let ft = 0;
-    for (const n of lines) {
-      const c = file.get(n);
-      if (!c || c.hits < 0)
-        continue;
-      ft++;
-      if (c.hits > 0)
-        fh++;
-    }
-    if (!ft)
-      continue;
-    files.push({ path, hit: fh, total: ft });
-    hit += fh;
-    total += ft;
-  }
-  files.sort((a, b) => a.hit / a.total - b.hit / b.total || a.path.localeCompare(b.path));
-  return { base, partial: diff.partial, hit, total, files };
-}
-
-// src/github.ts
-function parseRepo(slug) {
-  const m = slug.match(/^([^/\s]+)\/([^/\s]+)$/);
-  if (!m)
-    throw new Error(`Invalid repo slug: ${JSON.stringify(slug)} (expected "owner/name")`);
-  return { owner: m[1], name: m[2] };
-}
-async function api(method, path, body, {
-  token,
-  apiUrl = process.env.GITHUB_API_URL || "https://api.github.com"
-}) {
-  const url = `${apiUrl.replace(/\/+$/, "")}${path}`;
-  debug(`${method} ${url}`);
-  const res = await fetch(url, {
-    method,
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${token}`,
-      "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": "github-action-standalone-stats",
-      ...body === undefined ? {} : { "Content-Type": "application/json" }
-    },
-    body: body === undefined ? undefined : JSON.stringify(body)
-  });
-  const text = await res.text();
-  let parsed;
-  try {
-    parsed = text ? JSON.parse(text) : undefined;
-  } catch {
-    parsed = undefined;
-  }
-  return { status: res.status, body: parsed };
-}
-async function getRepo(ref, opts) {
-  const { status, body } = await api("GET", `/repos/${ref.owner}/${ref.name}`, undefined, opts);
-  if (status === 404)
-    return;
-  if (status !== 200)
-    throw new Error(`Unexpected status ${status} reading ${ref.owner}/${ref.name}`);
-  return {
-    private: !!body.private,
-    defaultBranch: body.default_branch ?? "main"
-  };
-}
-async function getPages(ref, opts) {
-  const { status, body } = await api("GET", `/repos/${ref.owner}/${ref.name}/pages`, undefined, opts);
-  if (status === 404)
-    return { state: "none" };
-  if (status !== 200)
-    return { state: "unknown", status };
-  const info = { state: "enabled", public: body.public !== false };
-  if (body.build_type)
-    info.buildType = body.build_type;
-  if (body.source)
-    info.source = body.source;
-  if (body.html_url)
-    info.url = body.html_url;
-  return info;
-}
-async function isOrg(owner, opts) {
-  const { status, body } = await api("GET", `/users/${owner}`, undefined, opts);
-  if (status !== 200)
-    throw new Error(`Failed to look up ${owner}: status ${status}`);
-  return body.type === "Organization";
-}
-async function createRepo(ref, opts) {
-  const org = await isOrg(ref.owner, opts);
-  const { status, body } = await api("POST", org ? `/orgs/${ref.owner}/repos` : "/user/repos", {
-    name: ref.name,
-    description: "Test and coverage stats, published by github-action-standalone-stats",
-    private: opts.visibility === "private",
-    auto_init: false,
-    has_issues: false,
-    has_projects: false,
-    has_wiki: false
-  }, opts);
-  if (status >= 200 && status < 300)
-    return;
-  throw new Error(`Failed to create ${ref.owner}/${ref.name}: status ${status} ${body?.message ?? ""}`.trim());
-}
-async function enablePages(ref, branch, opts) {
-  const { status } = await api("POST", `/repos/${ref.owner}/${ref.name}/pages`, { source: { branch, path: "/" } }, opts);
-  if (status === 201 || status === 204 || status === 409)
-    return;
-  warning(`Could not enable Pages on ${ref.owner}/${ref.name} (status ${status}). Enable it in Settings → Pages, source: branch ${branch}.`);
-}
-function defaultPagesUrl(ref, path) {
-  const trimmed = path.replace(/^\/+|\/+$/g, "");
-  const suffix = trimmed ? `${trimmed}/` : "";
-  if (ref.name.toLowerCase() === `${ref.owner.toLowerCase()}.github.io`)
-    return `https://${ref.name}/${suffix}`;
-  return `https://${ref.owner}.github.io/${ref.name}/${suffix}`;
-}
-var COMPARE_FILE_CAP = 300;
-async function compareDiff(ref, base, head, opts) {
-  const files = new Map;
-  let partial = false;
-  let seen = 0;
-  for (let page = 1;page <= 3; page++) {
-    const { status, body } = await api("GET", `/repos/${ref.owner}/${ref.name}/compare/${encodeURIComponent(base)}...${encodeURIComponent(head)}?per_page=100&page=${page}`, undefined, opts);
-    if (status !== 200) {
-      if (page === 1) {
-        info(`No diff for patch coverage (compare API status ${status})`);
-        return;
-      }
-      partial = true;
-      break;
-    }
-    const list = body.files ?? [];
-    for (const f of list) {
-      seen++;
-      if (f.status === "removed")
-        continue;
-      if (f.patch === undefined) {
-        if (f.changes)
-          partial = true;
-        continue;
-      }
-      files.set(f.filename, addedLines(f.patch));
-    }
-    if (list.length < 100)
-      break;
-    if (seen >= COMPARE_FILE_CAP)
-      partial = true;
-  }
-  return { files, partial };
-}
-
 // src/coverage/components.ts
 function globToRegExp(glob) {
   let g = glob.trim().replace(/\\/g, "/").replace(/^\.\//, "");
@@ -474,7 +312,10 @@ function addGroup(groups, flags, cov) {
   if (g)
     mergeCoverage(g.cov, cov);
   else
-    groups.set(k, { flags: [...flags].sort(), cov: mergeCoverage(new Map, cov) });
+    groups.set(k, {
+      flags: [...flags].sort(),
+      cov: mergeCoverage(new Map, cov)
+    });
 }
 function buildCoverage(uploads, o) {
   const groups = new Map;
@@ -505,7 +346,9 @@ function buildCoverage(uploads, o) {
   const merged = new Map;
   for (const g of groups.values())
     mergeCoverage(merged, g.cov);
-  const allFlags = [...new Set([...groups.values()].flatMap((g) => g.flags))].sort();
+  const allFlags = [
+    ...new Set([...groups.values()].flatMap((g) => g.flags))
+  ].sort();
   const flags = {};
   for (const f of allFlags) {
     const cov = new Map;
@@ -561,6 +404,16 @@ var GENERATOR = {
 };
 
 // src/publish/inputs.ts
+function parseCommentMode(raw) {
+  const v = raw.trim().toLowerCase();
+  if (!v || v === "auto" || v === "true")
+    return "auto";
+  if (v === "artifact")
+    return "artifact";
+  if (v === "never" || v === "false")
+    return "never";
+  throw new Error(`Invalid comment: ${JSON.stringify(raw)} (expected auto, artifact or never)`);
+}
 function parseBool(raw, name, dflt) {
   const v = raw.trim().toLowerCase();
   if (v === "")
@@ -632,7 +485,11 @@ function readPublishInputs(getInput, currentRepo, envToken) {
       name: getInput("commit-name").trim() || "github-actions[bot]",
       email: getInput("commit-email").trim() || "41898282+github-actions[bot]@users.noreply.github.com"
     },
-    commitMessage: getInput("commit-message").trim()
+    commitMessage: getInput("commit-message").trim(),
+    comment: parseCommentMode(getInput("comment")),
+    thresholds: parseThresholds(getInput("thresholds")),
+    thresholdStatus: parseBool(getInput("threshold-status"), "threshold-status", true),
+    failOnThreshold: parseBool(getInput("fail-on-threshold"), "fail-on-threshold", false)
   };
   const fmt = parseFormat(getInput("test-format"));
   if (fmt)
@@ -1075,174 +932,6 @@ async function readBaseline(root, repo, branch, excludeRunId) {
   return;
 }
 
-// src/publish/summary.ts
-var md = (s) => s.replace(/([\\`*_[\]<>|])/g, "\\$1");
-var code = (s) => `\`${s.replace(/[`|]/g, "?")}\``;
-function formatDuration(ms) {
-  if (ms < 1000)
-    return `${ms} ms`;
-  const s = ms / 1000;
-  if (s < 60)
-    return `${s.toFixed(1)} s`;
-  const m = Math.floor(s / 60);
-  return `${m}m ${Math.round(s - m * 60)}s`;
-}
-function signed(n) {
-  return n > 0 ? `+${n}` : String(n);
-}
-var LIST_LIMIT = 25;
-function deltaPct(cur, base) {
-  const a = pct(cur);
-  const b = base ? pct(base) : undefined;
-  if (a === undefined || b === undefined)
-    return "";
-  const d = Math.round((a - b) * 100) / 100;
-  if (d === 0)
-    return "±0%";
-  return `${d > 0 ? "+" : ""}${d.toFixed(2)}%`;
-}
-var ratio = (r) => r.total ? `${formatPct(r)} (${r.hit}/${r.total})` : "n/a";
-function breakdown(title, cur, base) {
-  const names = Object.keys(cur);
-  if (!names.length)
-    return [];
-  const withBase = !!base;
-  const out = [
-    `| ${title} | Lines |${withBase ? " Δ |" : ""} Branches | Files |`,
-    `| --- | ---: |${withBase ? " ---: |" : ""} ---: | ---: |`
-  ];
-  for (const n of names) {
-    const c = cur[n];
-    const d = withBase ? ` ${base?.[n] ? deltaPct(c.lines, base[n].lines) : "new"} |` : "";
-    out.push(`| ${md(n)}${c.carried ? " (carried forward)" : ""} | ${ratio(c.lines)} |${d} ${ratio(c.branches)} | ${c.files} |`);
-  }
-  out.push("");
-  return out;
-}
-function renderCoverage(cov, base, baseSha, badge, siteUrl) {
-  const out = ["### Coverage", ""];
-  if (badge && siteUrl)
-    out.push(`[![coverage](${badge})](${siteUrl})`, "");
-  const t = cov.totals;
-  const d = base ? deltaPct(t.lines, base.totals.lines) : "";
-  const bits = [
-    `**Lines ${ratio(t.lines)}**${d ? ` (${d} vs \`${baseSha?.slice(0, 7)}\`)` : ""}`,
-    t.branches.total ? `branches ${ratio(t.branches)}` : "",
-    `${t.files} files`
-  ].filter(Boolean);
-  out.push(bits.join(" · "), "");
-  if (cov.patch) {
-    const p = cov.patch;
-    out.push(p.total ? `**Patch ${ratio(p)}**: changed lines that ran${p.partial ? " (diff incomplete: too many files)" : ""}.` : "Patch: no coverable lines changed.", "");
-  }
-  if (cov.carriedForward.length)
-    out.push(`Carried forward from the baseline (not run this time): ${cov.carriedForward.map(code).join(", ")}.`, "");
-  if (Object.keys(cov.components).length > 1)
-    out.push(...breakdown("Component", cov.components, base?.components));
-  out.push(...breakdown("Flag", cov.flags, base?.flags));
-  const missed = cov.patch?.files.filter((f) => f.hit < f.total) ?? [];
-  if (missed.length) {
-    const rows = missed.slice(0, LIST_LIMIT).map((f) => `| ${code(f.path)} | ${ratio(f)} | ${f.total - f.hit} |`);
-    out.push(`<details><summary>Changed files with uncovered lines (${missed.length})</summary>`, "", "| File | Patch | Missed |", "| --- | ---: | ---: |", ...rows, "", missed.length > LIST_LIMIT ? `…and ${missed.length - LIST_LIMIT} more
-` : "", "</details>", "");
-  }
-  return out;
-}
-function list(title, ids) {
-  if (!ids.length)
-    return "";
-  const shown = ids.slice(0, LIST_LIMIT).map((id) => `- ${md(id)}`);
-  if (ids.length > LIST_LIMIT)
-    shown.push(`- …and ${ids.length - LIST_LIMIT} more`);
-  return `<details><summary>${title} (${ids.length})</summary>
-
-${shown.join(`
-`)}
-
-</details>
-`;
-}
-function renderSummary(record, cmp, links) {
-  const t = record.tests.totals;
-  const bad = t.failed + t.errored;
-  const out = ["## Standalone Stats", ""];
-  if (links.badgeUrl && links.siteUrl)
-    out.push(`[![tests](${links.badgeUrl})](${links.siteUrl})`, "");
-  const hasTests = record.uploads.some((u) => u.tests.total > 0);
-  if (!record.uploads.length) {
-    out.push("No test results or coverage were found for this run.", "");
-  } else if (!hasTests) {} else {
-    const parts = [
-      `${bad ? "❌" : "✅"} **${t.passed}** passed`,
-      bad ? `**${bad}** failing` : "",
-      t.skipped ? `${t.skipped} skipped` : "",
-      t.other ? `${t.other} other` : ""
-    ].filter(Boolean);
-    const jobs = record.uploads.length;
-    out.push(`${parts.join(" · ")} — ${t.total} results from ${record.tests.unique} tests across ${jobs} job${jobs === 1 ? "" : "s"}, ${formatDuration(t.durationMs)} total`, "");
-    if (record.tests.flaky)
-      out.push(`⚠️ ${record.tests.flaky} flaky (passed on retry)`, "");
-    if (cmp) {
-      const sha = cmp.baseSha.slice(0, 7);
-      const bits = [
-        cmp.newFailures.length ? `**${cmp.newFailures.length} new failure${cmp.newFailures.length === 1 ? "" : "s"}**` : "no new failures",
-        cmp.fixed.length ? `${cmp.fixed.length} fixed` : "",
-        cmp.stillFailing.length ? `${cmp.stillFailing.length} still failing` : "",
-        cmp.delta.total ? `${signed(cmp.delta.total)} results` : ""
-      ].filter(Boolean);
-      out.push(`Compared with \`${sha}\`: ${bits.join(", ")}.`, "");
-    }
-    const covCol = record.uploads.some((u) => u.coverage);
-    out.push(`| Job | Passed | Failed | Skipped | Time |${covCol ? " Lines |" : ""}`, `| --- | ---: | ---: | ---: | ---: |${covCol ? " ---: |" : ""}`);
-    for (const u of record.uploads) {
-      const f = u.tests.failed + u.tests.errored;
-      const c = covCol ? ` ${u.coverage ? formatPct(u.coverage.lines) : ""} |` : "";
-      out.push(`| ${md(u.label)} | ${u.tests.passed} | ${f ? `**${f}**` : 0} | ${u.tests.skipped} | ${formatDuration(u.tests.durationMs)} |${c}`);
-    }
-    out.push("");
-    if (cmp) {
-      out.push(list("New failures", cmp.newFailures));
-      out.push(list("Fixed", cmp.fixed));
-    }
-    const failures = record.tests.failures;
-    if (failures.length) {
-      const labels = new Map(record.uploads.map((u) => [u.key, u.label]));
-      const rows = failures.slice(0, LIST_LIMIT).map((f) => {
-        const where = f.uploads.map((k) => labels.get(k) ?? k).join(", ");
-        const msg = f.message ? `
-
-  \`\`\`
-  ${f.message.split(`
-`).slice(0, 8).join(`
-  `)}
-  \`\`\`` : "";
-        return `- **${md(f.id)}** (${md(where)})${msg}`;
-      });
-      const more = record.tests.failuresTruncated || failures.length > LIST_LIMIT ? `
-- …more in the dashboard` : "";
-      out.push(`<details><summary>Failures (${failures.length}${record.tests.failuresTruncated ? "+" : ""})</summary>
-
-${rows.join(`
-`)}${more}
-
-</details>
-`);
-    }
-  }
-  if (record.coverage)
-    out.push(...renderCoverage(record.coverage, cmp?.coverage?.baseRun.coverage, cmp?.baseSha, links.coverageBadgeUrl, links.siteUrl));
-  if (links.siteUrl)
-    out.push(`Dashboard: ${links.siteUrl}`, "");
-  if (links.note)
-    out.push(`> ${links.note}`, "");
-  else if (!links.recorded)
-    out.push("> This run was compared but not recorded in history.", "");
-  return out.filter((s) => s !== undefined).join(`
-`).replace(/\n{3,}/g, `
-
-`);
-}
-
 // src/publish/main.ts
 async function loadBaseline(root, repo, branch, excludeRunId) {
   const record = await readBaseline(root, repo, branch, excludeRunId);
@@ -1435,10 +1124,94 @@ async function run() {
     recorded,
     ...note ? { note } : {}
   };
-  await summary.addRaw(renderSummary(record, cmp, summaryLinks)).write();
+  const baseCov = cmp?.coverage?.baseRun.coverage;
+  const results = evaluate(inputs.thresholds, record.coverage, baseCov);
+  const thr = thresholdLine(results);
+  await summary.addRaw(renderSummary(record, cmp, summaryLinks)).addRaw(thr ? `
+${thr}
+` : "").write();
+  setOutput("thresholds-passed", results.length ? String(!failedRules(results).length) : "");
+  for (const r of results)
+    info(`Threshold ${r.label}: ${r.ok === false ? "FAILED" : r.ok ? "ok" : "skipped"}, ${r.text}`);
+  await deliver({
+    inputs,
+    ctx,
+    record,
+    cmp,
+    results,
+    siteUrl,
+    recorded,
+    ...note ? { note } : {}
+  });
   const bad = record.tests.totals.failed + record.tests.totals.errored;
   if (inputs.failOnTestFailure && bad)
     setFailed(`${bad} test result${bad === 1 ? "" : "s"} failed`);
+  const failed = failedRules(results);
+  if (inputs.failOnThreshold && failed.length)
+    setFailed(`Coverage thresholds not met: ${failed.map((r) => `${r.label} ${r.text}`).join("; ")}`);
+}
+var PERMISSION_HINT = "Give the job `permissions: { pull-requests: write, statuses: write }`, or use the `comment` companion action (see the README).";
+async function deliver(a) {
+  const { inputs, ctx, record } = a;
+  const pr = ctx.commit.pr;
+  const wants = {
+    comment: inputs.comment !== "never" && !!pr,
+    statuses: inputs.thresholdStatus && inputs.thresholds.length > 0
+  };
+  if (!wants.comment && !wants.statuses)
+    return;
+  const report = buildReport({
+    record,
+    cmp: a.cmp,
+    workflow: ctx.run.workflow,
+    runUrl: ctx.run.url,
+    ...pr ? { pr } : {},
+    siteUrl: a.siteUrl,
+    recorded: a.recorded,
+    ...a.note ? { note: a.note } : {},
+    rules: inputs.thresholds,
+    wants
+  });
+  const left = { ...wants };
+  const direct = inputs.comment !== "artifact" && !ctx.fromFork;
+  if (direct) {
+    const repo = parseRepo(ctx.repo);
+    const api = { token: inputs.token };
+    const attempt = async (what, fn) => {
+      try {
+        await fn();
+        return true;
+      } catch (err) {
+        if (err instanceof PermissionError) {
+          warning(`${err.message}. ${PERMISSION_HINT}`);
+          return false;
+        }
+        warning(`${what} failed: ${err.message}`);
+        return true;
+      }
+    };
+    if (wants.comment && pr)
+      left.comment = !await attempt("PR comment", async () => {
+        const res = await upsertComment(repo, pr, report, inputs.thresholds, api);
+        if (res.action === "skipped")
+          info(`PR comment not updated: ${res.reason}`);
+        else {
+          info(`PR comment ${res.action}: ${res.url}`);
+          setOutput("comment-url", res.url);
+        }
+      });
+    if (wants.statuses)
+      left.statuses = !await attempt("Commit statuses", async () => {
+        const target = a.recorded ? `${a.siteUrl}#/runs/${record.key}` : ctx.run.url;
+        const n = await postStatuses(repo, record.commit.sha, a.results, target, api);
+        info(`Posted ${n} commit status${n === 1 ? "" : "es"}`);
+      });
+  }
+  if (left.comment || left.statuses) {
+    report.wants = left;
+    if (await uploadReport(report))
+      info(`Report handed off for the comment companion (${[left.comment ? "comment" : "", left.statuses ? "statuses" : ""].filter(Boolean).join(" and ")}).`);
+  }
 }
 function publishOutputs(record, newFailures, siteUrl, recorded) {
   const t = record.tests.totals;

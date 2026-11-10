@@ -1,0 +1,37 @@
+name: Standalone Stats - comment
+description: >-
+  Post the standalone-stats PR comment and coverage commit statuses for a
+  run whose own token couldn't, such as pull requests from forks. Run it
+  from a workflow triggered by `workflow_run`.
+author: Cameron Tacklind <cameron@tacklind.com>
+branding:
+  icon: message-square
+  color: blue
+
+inputs:
+  run-id:
+    description: >-
+      The run whose report to post. Defaults to the run that triggered this
+      `workflow_run` workflow.
+    default: ${{ github.event.workflow_run.id }}
+  token:
+    description: >-
+      Token with `actions: read`, `pull-requests: write` and `statuses:
+      write` on this repo.
+    default: ${{ github.token }}
+  thresholds:
+    description: >-
+      Coverage rules to check, overriding the ones the run was configured
+      with (same format as the publish step's `thresholds`). Set this when
+      you don't want a PR's own workflow to choose its rules.
+    default: ''
+
+outputs:
+  comment-url:
+    description: URL of the PR comment, when one was posted or updated.
+  thresholds-passed:
+    description: '`true` or `false` when there were rules to check, else empty.'
+
+runs:
+  using: node24
+  main: ../dist/comment/main.js

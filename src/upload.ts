@@ -26,6 +26,8 @@ import {
 } from './coverage/model.js';
 
 export const DEFAULT_PREFIX = 'standalone-stats-';
+/** Same as `report.ts`; not imported, to keep collect's bundle small. */
+const REPORT_ARTIFACT = 'standalone-stats-report';
 const FILE = 'upload.json';
 
 /** Limits on what we accept from an upload. Artifacts from fork PRs are
@@ -157,7 +159,10 @@ export async function uploadArtifact(
 export async function downloadUploads(prefix: string): Promise<Upload[]> {
   const client = new DefaultArtifactClient();
   const { artifacts } = await client.listArtifacts({ latest: true });
-  const mine = artifacts.filter(a => a.name.startsWith(prefix));
+  // The PR report shares the default prefix but isn't an upload.
+  const mine = artifacts.filter(
+    a => a.name.startsWith(prefix) && a.name !== REPORT_ARTIFACT,
+  );
   const root = await mkdtemp(
     join(process.env.RUNNER_TEMP || tmpdir(), 'standalone-stats-dl-'),
   );
