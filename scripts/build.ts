@@ -1,6 +1,8 @@
-// Bundles both action entry points and ships the viewer next to them.
+// Bundles both action entry points, then builds the dashboard (a Vite +
+// React app in viewer/) into dist/viewer, which publish copies to Pages.
 // dist/ is committed: GitHub runs it directly, with no install step.
-import { cp, rm } from 'node:fs/promises';
+import { rm } from 'node:fs/promises';
+import { build as viteBuild } from 'vite';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -28,5 +30,8 @@ for (const o of result.outputs)
     `${o.path.slice(root.length).replace(/\\/g, '/')}: ${(o.size / 1024).toFixed(0)} KiB`,
   );
 
-await cp(`${root}viewer`, `${dist}/viewer`, { recursive: true });
+await viteBuild({
+  configFile: `${root}viewer/vite.config.ts`,
+  logLevel: 'warn',
+});
 console.log('dist/viewer/');

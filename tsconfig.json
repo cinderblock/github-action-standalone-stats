@@ -13,6 +13,6 @@
     "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["src/**/*", "scripts/**/*", "test/**/*"],
+  "include": ["src/**/*", "scripts/**/*", "test/**/*", "viewer/vite.config.ts"],
   "exclude": ["node_modules", "dist"]
 }
