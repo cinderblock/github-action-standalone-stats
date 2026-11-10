@@ -164,6 +164,15 @@ failed step; the same-repo comment first, then the `workflow_run` companion in t
 
 ## Findings / gotchas
 
+- **The compare API omits patches for big files** (this repo's committed `dist/` bundles), which
+  marked every PR's patch coverage "diff incomplete". Now only an omitted file that has coverage
+  makes it incomplete (`Diff.omitted`).
+- **Threshold math should use the floored percentages people see.** With exact values the drop
+  rule said +1.47 pts beside a headline of +1.48 pts.
+- **`workflow_run` only triggers from the default branch**, so a fork companion can't be tested in
+  its own PR. CI runs the same companion as a job in the same run (`run-id: github.run_id`), which
+  exercises the artifact path live.
+
 - **The current design double-counts.** `main.ts` unions every run's raw `*-result.json` into the
   `allure-data` branch forever, then runs `allure generate` on the whole pile. Only `history/`
   should carry forward. See the recommendation for details.
@@ -254,7 +263,11 @@ failed step; the same-repo comment first, then the `workflow_run` companion in t
   (payload, sanitizer, comment), `src/post.ts` (upsert, statuses, artifact hand-off),
   `src/comment/main.ts` + `comment/action.yml`, publish wiring, CI `comment` job +
   `stats-comment.yml`, README section, `test/report.test.ts` (102 tests pass). PR #27.
-- [ ] Phase 4 PR green, comment and statuses seen live on the PR; merge needs Cameron's yes
+- [x] Phase 4 PR #27 green (9 checks), live on the PR (Nov 10, ~3:30 PM PST (~23:30Z)). The
+  companion job posted the comment and both statuses. A second push edited the same comment
+  (still 1 comment). Polish from the first live run is in `1232dc2`.
+- [ ] Merge PR #27 (needs Cameron's yes). After that, the fork path (`stats-comment.yml`, a
+  `workflow_run` trigger) can run for the first time. It only fires from the default branch.
 
 Note: the master run on `2c77ef7` (Nov 8 11:35 PM PST (07:35Z Nov 9)) failed only on macOS with
 `Unexpected HTTP response: 504` during setup, before any test ran. Transient runner-side download
