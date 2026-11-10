@@ -61,7 +61,8 @@ function patchCoverage(cov, diff, base) {
     total += ft;
   }
   files.sort((a, b) => a.hit / a.total - b.hit / b.total || a.path.localeCompare(b.path));
-  return { base, partial: diff.partial, hit, total, files };
+  const partial = diff.partial || (diff.omitted ?? []).some((path) => cov.has(path));
+  return { base, partial, hit, total, files };
 }
 
 // src/github.ts
@@ -160,6 +161,7 @@ function defaultPagesUrl(ref, path) {
 var COMPARE_FILE_CAP = 300;
 async function compareDiff(ref, base, head, opts) {
   const files = new Map;
+  const omitted = [];
   let partial = false;
   let seen = 0;
   for (let page = 1;page <= 3; page++) {
@@ -179,7 +181,7 @@ async function compareDiff(ref, base, head, opts) {
         continue;
       if (f.patch === undefined) {
         if (f.changes)
-          partial = true;
+          omitted.push(f.filename);
         continue;
       }
       files.set(f.filename, addedLines(f.patch));
@@ -189,7 +191,7 @@ async function compareDiff(ref, base, head, opts) {
     if (seen >= COMPARE_FILE_CAP)
       partial = true;
   }
-  return { files, partial };
+  return omitted.length ? { files, partial, omitted } : { files, partial };
 }
 
 class PermissionError extends Error {
@@ -509,8 +511,8 @@ function evaluate(rules, cov, base) {
       case "flag":
         return min(cov?.flags[rule.name]?.lines);
       case "drop": {
-        const cur = cov ? exact(cov.totals.lines) : undefined;
-        const was = base ? exact(base.totals.lines) : undefined;
+        const cur = cov ? pct(cov.totals.lines) : undefined;
+        const was = base ? pct(base.totals.lines) : undefined;
         if (cur === undefined || was === undefined)
           return { rule, group, label, text: "no baseline" };
         const d = Math.max(0, was - cur);
@@ -889,15 +891,21 @@ ${thresholdLine(results)}` : "";
   if (thr)
     out.push(thr, "");
   if (t.total) {
-    const parts = [
-      `**${t.passed}** passed`,
-      bad ? `**${bad}** failing` : "",
-      t.skipped ? `${t.skipped} skipped` : "",
-      r.run.tests.flaky ? `⚠️ ${r.run.tests.flaky} flaky` : ""
-    ].filter(Boolean);
     const jobs = r.run.uploads.length;
-    const results_ = r.run.tests.totals.total;
-    out.push(`${bad ? "❌" : "✅"} ${parts.join(" · ")} — ${plural(t.total, "test")}${results_ !== t.total ? ` (${results_} results across ${plural(jobs, "job")})` : ""}`, "");
+    const runs = r.run.tests.totals.total;
+    const across = runs !== t.total ? ` (${runs} results across ${plural(jobs, "job")})` : "";
+    const flaky = r.run.tests.flaky ? ` · ⚠️ ${r.run.tests.flaky} flaky` : "";
+    if (t.passed === t.total)
+      out.push(`✅ **${t.passed}** ${t.passed === 1 ? "test" : "tests"} passed${across}${flaky}`, "");
+    else {
+      const parts = [
+        bad ? `**${bad}** failing` : "",
+        `**${t.passed}** passed`,
+        t.skipped ? `${t.skipped} skipped` : "",
+        t.other ? `${t.other} other` : ""
+      ].filter(Boolean);
+      out.push(`${bad ? "❌" : "✅"} ${parts.join(" · ")} of ${plural(t.total, "test")}${across}${flaky}`, "");
+    }
     if (c) {
       const bits = [
         c.newFailures.length ? `**${plural(c.newFailures.length, "new failure")}**` : "no new failures",
@@ -944,12 +952,13 @@ ${rows.join(`
   if (cov) {
     details.push(missedFiles(cov).join(`
 `));
+    const hasComponents = Object.keys(cov.components).length > 1;
     const tables = [
-      ...Object.keys(cov.components).length > 1 ? breakdown("Component", cov.components, c?.baseCoverage?.components) : [],
+      ...hasComponents ? breakdown("Component", cov.components, c?.baseCoverage?.components) : [],
       ...breakdown("Flag", cov.flags, c?.baseCoverage?.flags)
     ];
     if (tables.length)
-      details.push(`<details><summary>Coverage by component and flag</summary>
+      details.push(`<details><summary>Coverage by ${hasComponents && Object.keys(cov.flags).length ? "component and flag" : hasComponents ? "component" : "flag"}</summary>
 
 ${tables.join(`
 `)}

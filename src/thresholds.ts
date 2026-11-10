@@ -1,5 +1,5 @@
 import type { RunCoverage } from './model.js';
-import type { Ratio } from './coverage/model.js';
+import { pct, type Ratio } from './coverage/model.js';
 
 /**
  * Coverage rules, one per line of the `thresholds` input:
@@ -119,8 +119,10 @@ export function evaluate(
       case 'flag':
         return min(cov?.flags[rule.name]?.lines);
       case 'drop': {
-        const cur = cov ? exact(cov.totals.lines) : undefined;
-        const was = base ? exact(base.totals.lines) : undefined;
+        // Floored like the percentages people see next to it, so the
+        // rule's "+1.48 pts" matches the comment's headline.
+        const cur = cov ? pct(cov.totals.lines) : undefined;
+        const was = base ? pct(base.totals.lines) : undefined;
         if (cur === undefined || was === undefined)
           return { rule, group, label, text: 'no baseline' };
         const d = Math.max(0, was - cur);

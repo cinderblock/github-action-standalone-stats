@@ -376,6 +376,19 @@ describe('patch coverage', () => {
     );
     expect({ hit: p.hit, total: p.total }).toEqual({ hit: 1, total: 2 });
     expect(p.files).toEqual([{ path: 'a.ts', hit: 1, total: 2 }]);
+    expect(p.partial).toBe(false);
+  });
+
+  it('is incomplete only when a file without a patch has coverage', () => {
+    const cov: Coverage = new Map([['b.ts', new Map([[1, { hits: 1 }]])]]);
+    const diff = (omitted: string[]) => ({
+      files: new Map<string, Set<number>>(),
+      partial: false,
+      omitted,
+    });
+    // A committed bundle too big for the compare API: not covered, fine.
+    expect(patchCoverage(cov, diff(['dist/main.js']), 'b').partial).toBe(false);
+    expect(patchCoverage(cov, diff(['b.ts']), 'b').partial).toBe(true);
   });
 });
 

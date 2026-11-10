@@ -267,8 +267,9 @@ describe('comment', () => {
     expect(body).toContain(
       '**Thresholds:** ❌ patch 75.00% (min 90%) · ✅ total 84.00% (min 80%)',
     );
-    expect(body).toContain('**1** failing');
-    expect(body).toContain('2 tests (4 results across 2 jobs)');
+    expect(body).toContain(
+      '❌ **1** failing · **1** passed of 2 tests (4 results across 2 jobs)',
+    );
     expect(body).toContain('**1 new failure**');
     expect(body).toContain('**Coverage 84.00%** (−1.00 pts)');
     expect(body).toContain('**Patch 75.00%** (3/4 changed lines ran)');
@@ -278,6 +279,16 @@ describe('comment', () => {
     expect(body).toContain('  ````\n  expected 1\n  ```\n  @someone\n  ````');
     expect(body).toContain('| Linux | 84.00% (840/1000) | −1.00 pts |');
     expect(body).toContain('[Dashboard](https://o.github.io/r/stats/)');
+  });
+
+  it('says an all-green run once', () => {
+    const p = pair(
+      { tests: green, cov: coverage(860) },
+      { tests: green, cov: coverage(850) },
+    );
+    const body = renderComment(report(p));
+    expect(body).toContain('✅ **2** tests passed (4 results across 2 jobs)');
+    expect(body).toContain('<summary>Coverage by component and flag</summary>');
   });
 
   it('reads the run id back from its marker', () => {

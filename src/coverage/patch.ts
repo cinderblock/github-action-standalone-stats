@@ -4,8 +4,12 @@ import type { Coverage, Ratio } from './model.js';
 export interface Diff {
   /** Head-side line numbers added in each file. */
   files: Map<string, Set<number>>;
-  /** True when the diff is incomplete (API file cap, omitted patches). */
+  /** True when the diff is incomplete (the API's file cap). */
   partial: boolean;
+  /** Changed files the API sent no patch for (binary, or too large, like a
+   *  committed bundle). They only make the result incomplete if they have
+   *  coverage. */
+  omitted?: string[];
 }
 
 /** Added line numbers (head side) of a unified diff hunk list. */
@@ -24,7 +28,8 @@ export function addedLines(patch: string): Set<number> {
     if (!inHunk) continue;
     if (l.startsWith('+')) out.add(line++);
     else if (l.startsWith('-')) continue;
-    else if (l.startsWith('\\')) continue; // "\ No newline at end of file"
+    else if (l.startsWith('\\'))
+      continue; // "\ No newline at end of file"
     else line++;
   }
   return out;
@@ -70,5 +75,7 @@ export function patchCoverage(
   files.sort(
     (a, b) => a.hit / a.total - b.hit / b.total || a.path.localeCompare(b.path),
   );
-  return { base, partial: diff.partial, hit, total, files };
+  const partial =
+    diff.partial || (diff.omitted ?? []).some(path => cov.has(path));
+  return { base, partial, hit, total, files };
 }

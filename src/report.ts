@@ -472,18 +472,30 @@ export function renderComment(r: Report, rules: Rule[] = r.rules): string {
   if (thr) out.push(thr, '');
 
   if (t.total) {
-    const parts = [
-      `**${t.passed}** passed`,
-      bad ? `**${bad}** failing` : '',
-      t.skipped ? `${t.skipped} skipped` : '',
-      r.run.tests.flaky ? `⚠️ ${r.run.tests.flaky} flaky` : '',
-    ].filter(Boolean);
     const jobs = r.run.uploads.length;
-    const results_ = r.run.tests.totals.total;
-    out.push(
-      `${bad ? '❌' : '✅'} ${parts.join(' · ')} — ${plural(t.total, 'test')}${results_ !== t.total ? ` (${results_} results across ${plural(jobs, 'job')})` : ''}`,
-      '',
-    );
+    const runs = r.run.tests.totals.total;
+    const across =
+      runs !== t.total
+        ? ` (${runs} results across ${plural(jobs, 'job')})`
+        : '';
+    const flaky = r.run.tests.flaky ? ` · ⚠️ ${r.run.tests.flaky} flaky` : '';
+    if (t.passed === t.total)
+      out.push(
+        `✅ **${t.passed}** ${t.passed === 1 ? 'test' : 'tests'} passed${across}${flaky}`,
+        '',
+      );
+    else {
+      const parts = [
+        bad ? `**${bad}** failing` : '',
+        `**${t.passed}** passed`,
+        t.skipped ? `${t.skipped} skipped` : '',
+        t.other ? `${t.other} other` : '',
+      ].filter(Boolean);
+      out.push(
+        `${bad ? '❌' : '✅'} ${parts.join(' · ')} of ${plural(t.total, 'test')}${across}${flaky}`,
+        '',
+      );
+    }
     if (c) {
       const bits = [
         c.newFailures.length
@@ -529,15 +541,16 @@ export function renderComment(r: Report, rules: Rule[] = r.rules): string {
   }
   if (cov) {
     details.push(missedFiles(cov).join('\n'));
+    const hasComponents = Object.keys(cov.components).length > 1;
     const tables = [
-      ...(Object.keys(cov.components).length > 1
+      ...(hasComponents
         ? breakdown('Component', cov.components, c?.baseCoverage?.components)
         : []),
       ...breakdown('Flag', cov.flags, c?.baseCoverage?.flags),
     ];
     if (tables.length)
       details.push(
-        `<details><summary>Coverage by component and flag</summary>\n\n${tables.join('\n')}\n</details>\n`,
+        `<details><summary>Coverage by ${hasComponents && Object.keys(cov.flags).length ? 'component and flag' : hasComponents ? 'component' : 'flag'}</summary>\n\n${tables.join('\n')}\n</details>\n`,
       );
   }
   if (r.run.uploads.length > 1 && t.total) {

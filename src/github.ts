@@ -191,6 +191,7 @@ export async function compareDiff(
   opts: ApiOptions,
 ): Promise<Diff | undefined> {
   const files = new Map<string, Set<number>>();
+  const omitted: string[] = [];
   let partial = false;
   let seen = 0;
   for (let page = 1; page <= 3; page++) {
@@ -221,7 +222,7 @@ export async function compareDiff(
       if (f.status === 'removed') continue;
       if (f.patch === undefined) {
         // Binary, or too large for the API to include.
-        if (f.changes) partial = true;
+        if (f.changes) omitted.push(f.filename);
         continue;
       }
       files.set(f.filename, addedLines(f.patch));
@@ -229,7 +230,7 @@ export async function compareDiff(
     if (list.length < 100) break;
     if (seen >= COMPARE_FILE_CAP) partial = true;
   }
-  return { files, partial };
+  return omitted.length ? { files, partial, omitted } : { files, partial };
 }
 
 /** A write the token isn't allowed to make (read-only token, fork PR, or
