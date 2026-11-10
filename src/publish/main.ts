@@ -19,7 +19,11 @@ import {
   getPages,
   getRepo,
   parseRepo,
+  PermissionError,
 } from '../github.js';
+import { postStatuses, uploadReport, upsertComment } from '../post.js';
+import { buildReport, thresholdLine } from '../report.js';
+import { evaluate, failedRules, type RuleResult } from '../thresholds.js';
 import type { DetailFile, RunRecord, Upload } from '../model.js';
 import type { Diff } from '../coverage/patch.js';
 import { pct } from '../coverage/model.js';
@@ -124,7 +128,9 @@ async function readOnlyBaseline(
   } catch (err) {
     // A missing branch returned above; anything here is a real failure
     // (auth, network), so make it visible instead of a quiet "no baseline".
-    core.warning(`Could not read the baseline, so nothing is compared: ${(err as Error).message}`);
+    core.warning(
+      `Could not read the baseline, so nothing is compared: ${(err as Error).message}`,
+    );
     return undefined;
   }
 }
@@ -316,11 +322,144 @@ async function run(): Promise<void> {
     recorded,
     ...(note ? { note } : {}),
   };
-  await core.summary.addRaw(renderSummary(record, cmp, summaryLinks)).write();
+  const baseCov = cmp?.coverage?.baseRun.coverage;
+  const results = evaluate(inputs.thresholds, record.coverage, baseCov);
+  const thr = thresholdLine(results);
+  await core.summary
+    .addRaw(renderSummary(record, cmp, summaryLinks))
+    .addRaw(
+      thr
+        ? `
+${thr}
+`
+        : '',
+    )
+    .write();
+  core.setOutput(
+    'thresholds-passed',
+    results.length ? String(!failedRules(results).length) : '',
+  );
+  for (const r of results)
+    core.info(
+      `Threshold ${r.label}: ${r.ok === false ? 'FAILED' : r.ok ? 'ok' : 'skipped'}, ${r.text}`,
+    );
+
+  await deliver({
+    inputs,
+    ctx,
+    record,
+    cmp,
+    results,
+    siteUrl,
+    recorded,
+    ...(note ? { note } : {}),
+  });
 
   const bad = record.tests.totals.failed + record.tests.totals.errored;
   if (inputs.failOnTestFailure && bad)
     core.setFailed(`${bad} test result${bad === 1 ? '' : 's'} failed`);
+  const failed = failedRules(results);
+  if (inputs.failOnThreshold && failed.length)
+    core.setFailed(
+      `Coverage thresholds not met: ${failed.map(r => `${r.label} ${r.text}`).join('; ')}`,
+    );
+}
+
+const PERMISSION_HINT =
+  'Give the job `permissions: { pull-requests: write, statuses: write }`, or use the `comment` companion action (see the README).';
+
+/**
+ * The PR comment and commit statuses: posted directly when this token can,
+ * else handed to the `comment` companion as an artifact. Never fails the
+ * step; a missing permission is a warning.
+ */
+async function deliver(a: {
+  inputs: PublishInputs;
+  ctx: Context;
+  record: RunRecord;
+  cmp: ReturnType<typeof compare> | undefined;
+  results: RuleResult[];
+  siteUrl: string;
+  recorded: boolean;
+  note?: string;
+}) {
+  const { inputs, ctx, record } = a;
+  const pr = ctx.commit.pr;
+  const wants = {
+    comment: inputs.comment !== 'never' && !!pr,
+    statuses: inputs.thresholdStatus && inputs.thresholds.length > 0,
+  };
+  if (!wants.comment && !wants.statuses) return;
+  const report = buildReport({
+    record,
+    cmp: a.cmp,
+    workflow: ctx.run.workflow,
+    runUrl: ctx.run.url,
+    ...(pr ? { pr } : {}),
+    siteUrl: a.siteUrl,
+    recorded: a.recorded,
+    ...(a.note ? { note: a.note } : {}),
+    rules: inputs.thresholds,
+    wants,
+  });
+
+  const left = { ...wants };
+  const direct = inputs.comment !== 'artifact' && !ctx.fromFork;
+  if (direct) {
+    const repo = parseRepo(ctx.repo);
+    const api = { token: inputs.token };
+    const attempt = async (what: string, fn: () => Promise<void>) => {
+      try {
+        await fn();
+        return true;
+      } catch (err) {
+        if (err instanceof PermissionError) {
+          core.warning(`${(err as Error).message}. ${PERMISSION_HINT}`);
+          return false;
+        }
+        core.warning(`${what} failed: ${(err as Error).message}`);
+        // A real failure isn't something the companion would do better.
+        return true;
+      }
+    };
+    if (wants.comment && pr)
+      left.comment = !(await attempt('PR comment', async () => {
+        const res = await upsertComment(
+          repo,
+          pr,
+          report,
+          inputs.thresholds,
+          api,
+        );
+        if (res.action === 'skipped')
+          core.info(`PR comment not updated: ${res.reason}`);
+        else {
+          core.info(`PR comment ${res.action}: ${res.url}`);
+          core.setOutput('comment-url', res.url);
+        }
+      }));
+    if (wants.statuses)
+      left.statuses = !(await attempt('Commit statuses', async () => {
+        const target = a.recorded
+          ? `${a.siteUrl}#/runs/${record.key}`
+          : ctx.run.url;
+        const n = await postStatuses(
+          repo,
+          record.commit.sha,
+          a.results,
+          target,
+          api,
+        );
+        core.info(`Posted ${n} commit status${n === 1 ? '' : 'es'}`);
+      }));
+  }
+  if (left.comment || left.statuses) {
+    report.wants = left;
+    if (await uploadReport(report))
+      core.info(
+        `Report handed off for the comment companion (${[left.comment ? 'comment' : '', left.statuses ? 'statuses' : ''].filter(Boolean).join(' and ')}).`,
+      );
+  }
 }
 
 function publishOutputs(

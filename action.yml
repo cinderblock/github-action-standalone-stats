@@ -69,6 +69,32 @@ inputs:
     description: Runs whose line-level coverage is kept (older runs keep totals only).
     default: '50'
 
+  # ---- Pull requests and checks ----
+  comment:
+    description: >-
+      PR comment, one per workflow, edited in place on every push. `auto`
+      posts it when the token can (needs `pull-requests: write`) and
+      otherwise hands the report to the `comment` companion action as an
+      artifact, as it always does for fork PRs. `artifact` always hands off.
+      `never` turns it off.
+    default: auto
+  thresholds:
+    description: >-
+      Coverage rules, one `name: number` per line. `total`, `branches` and
+      `patch` are minimum percentages, `drop` is the most points total
+      coverage may fall below the baseline, and `component <name>` /
+      `flag <name>` are minimum line coverage. Off when empty.
+    default: ''
+  threshold-status:
+    description: >-
+      Report thresholds as commit statuses (`standalone-stats/coverage` and
+      `standalone-stats/patch`; needs `statuses: write`), which branch
+      protection can require.
+    default: 'true'
+  fail-on-threshold:
+    description: Fail this step when a threshold isn't met.
+    default: 'false'
+
   # ---- Where ----
   repo:
     description: >-
@@ -166,6 +192,10 @@ outputs:
     description: URL of the coverage badge (empty without coverage).
   coverage-badge-markdown:
     description: Markdown for a README coverage badge.
+  thresholds-passed:
+    description: '`true` or `false` when there were thresholds to check, else empty.'
+  comment-url:
+    description: URL of the PR comment, when this step posted or updated it.
 
 runs:
   using: node24

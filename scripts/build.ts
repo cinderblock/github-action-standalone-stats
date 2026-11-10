@@ -1,4 +1,4 @@
-// Bundles both action entry points, then builds the dashboard (a Vite +
+// Bundles the three action entry points, then builds the dashboard (a Vite +
 // React app in viewer/) into dist/viewer, which publish copies to Pages.
 // dist/ is committed: GitHub runs it directly, with no install step.
 import { rm } from 'node:fs/promises';
@@ -13,7 +13,11 @@ await rm(dist, { recursive: true, force: true });
 // One build with code splitting: both entries share a chunk, instead of
 // each carrying its own copy of @actions/* (~3 MB).
 const result = await Bun.build({
-  entrypoints: [`${root}src/publish/main.ts`, `${root}src/collect/main.ts`],
+  entrypoints: [
+    `${root}src/publish/main.ts`,
+    `${root}src/collect/main.ts`,
+    `${root}src/comment/main.ts`,
+  ],
   root: `${root}src`,
   target: 'node',
   format: 'esm',

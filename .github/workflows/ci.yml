@@ -50,7 +50,37 @@ jobs:
       - name: Publish stats
         id: stats
         uses: ./
-      - run: echo "Dashboard ${{ steps.stats.outputs.site-url }} (recorded ${{ steps.stats.outputs.recorded }})"
+        with:
+          # Dogfood the harder path: hand the PR comment and statuses to the
+          # companion (the `comment` job below; stats-comment.yml for forks)
+          # instead of posting them from here.
+          comment: artifact
+          thresholds: |
+            total: 80
+            patch: 60
+            drop: 2
+      - run: echo "Dashboard ${{ steps.stats.outputs.site-url }} (recorded ${{ steps.stats.outputs.recorded }}, thresholds passed ${{ steps.stats.outputs.thresholds-passed }})"
+
+  # The companion, run in the same workflow for same-repo PRs and pushes:
+  # posts the sticky PR comment and the coverage statuses from the report
+  # the stats job uploaded. Fork PRs get the same from stats-comment.yml,
+  # which runs with this repo's token after this workflow finishes.
+  comment:
+    needs: stats
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pull-requests: write
+      statuses: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Post PR comment and statuses
+        id: comment
+        uses: ./comment
+        with:
+          run-id: ${{ github.run_id }}
+      - run: echo "Comment ${{ steps.comment.outputs.comment-url }} (thresholds passed ${{ steps.comment.outputs.thresholds-passed }})"
 
   # The dashboard, end to end: build it, generate the demo data through the
   # real pipeline, and drive every page in headless Chromium (desktop and
@@ -86,7 +116,7 @@ jobs:
       - name: Bundles load and reach the env guard
         run: |
           set +e
-          for entry in dist/publish/main.js dist/collect/main.js; do
+          for entry in dist/publish/main.js dist/collect/main.js dist/comment/main.js; do
             env -u GITHUB_REPOSITORY node "$entry" > out.txt 2>&1
             cat out.txt
             grep -q "only runs inside GitHub Actions" out.txt || { echo "::error::$entry did not load"; exit 1; }

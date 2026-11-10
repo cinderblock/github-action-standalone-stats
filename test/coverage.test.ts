@@ -49,8 +49,11 @@ const OSES = Object.keys(WORKSPACES) as Os[];
 const never = () => false;
 
 function cobertura(os: Os): Coverage {
-  return resolveRaw(readCobertura(fx(`${os}.cobertura.xml`)), WORKSPACES[os], never)
-    .coverage;
+  return resolveRaw(
+    readCobertura(fx(`${os}.cobertura.xml`)),
+    WORKSPACES[os],
+    never,
+  ).coverage;
 }
 function lcov(os: Os): Coverage {
   return resolveRaw(readLcov(fx(`${os}.lcov.info`)), WORKSPACES[os], never)
@@ -71,7 +74,9 @@ function reportTotals(xml: string) {
   for (const [, body] of xml.matchAll(/<class [^>]*>([\s\S]*?)<\/class>/g)) {
     const byLine = new Map<string, { n: number; hit: number }>();
     const lines = body!.replace(/<methods>[\s\S]*?<\/methods>/g, '');
-    for (const [, n, h] of lines.matchAll(/<line number="(\d+)" hits="(\d+)"/g)) {
+    for (const [, n, h] of lines.matchAll(
+      /<line number="(\d+)" hits="(\d+)"/g,
+    )) {
       const e = byLine.get(n!) ?? { n: 0, hit: 0 };
       e.n++;
       if (Number(h) > 0) e.hit++;
@@ -83,43 +88,66 @@ function reportTotals(xml: string) {
     }
   }
   return {
-    lines: { hit: a('lines-covered') - dupHit, total: a('lines-valid') - dupTotal },
+    lines: {
+      hit: a('lines-covered') - dupHit,
+      total: a('lines-valid') - dupTotal,
+    },
     branches: { hit: a('branches-covered'), total: a('branches-valid') },
   };
 }
 
 describe('workspaceRelative', () => {
   it('handles every spelling the fixtures use', () => {
-    expect(workspaceRelative('lib\\darwin.ts', WORKSPACES.windows)).toBe('lib/darwin.ts');
-    expect(
-      workspaceRelative('a\\bindings-cpp\\bindings-cpp\\src\\x.cpp', WORKSPACES.windows, ['D:']),
-    ).toBe('src/x.cpp');
-    expect(workspaceRelative('src/x.cpp', WORKSPACES.ubuntu, [WORKSPACES.ubuntu])).toBe(
-      'src/x.cpp',
+    expect(workspaceRelative('lib\\darwin.ts', WORKSPACES.windows)).toBe(
+      'lib/darwin.ts',
     );
-    expect(workspaceRelative('/usr/include/stdio.h', WORKSPACES.ubuntu)).toBeUndefined();
-    expect(workspaceRelative('D:\\other\\x.cpp', WORKSPACES.windows)).toBeUndefined();
+    expect(
+      workspaceRelative(
+        'a\\bindings-cpp\\bindings-cpp\\src\\x.cpp',
+        WORKSPACES.windows,
+        ['D:'],
+      ),
+    ).toBe('src/x.cpp');
+    expect(
+      workspaceRelative('src/x.cpp', WORKSPACES.ubuntu, [WORKSPACES.ubuntu]),
+    ).toBe('src/x.cpp');
+    expect(
+      workspaceRelative('/usr/include/stdio.h', WORKSPACES.ubuntu),
+    ).toBeUndefined();
+    expect(
+      workspaceRelative('D:\\other\\x.cpp', WORKSPACES.windows),
+    ).toBeUndefined();
   });
 
   it('prefers a declared base where the file exists', () => {
     const bases = ['/w/repo/build', '/w/repo/src'];
     expect(
-      workspaceRelative('x.py', '/w/repo', bases, p => p === '/w/repo/src/x.py'),
+      workspaceRelative(
+        'x.py',
+        '/w/repo',
+        bases,
+        p => p === '/w/repo/src/x.py',
+      ),
     ).toBe('src/x.py');
-    expect(workspaceRelative('x.py', '/w/repo', bases, never)).toBe('build/x.py');
+    expect(workspaceRelative('x.py', '/w/repo', bases, never)).toBe(
+      'build/x.py',
+    );
   });
 });
 
 describe('Cobertura reader', () => {
-  it.each(OSES)('%s: totals match the report and paths are repo-relative', os => {
-    const xml = fx(`${os}.cobertura.xml`);
-    const cov = cobertura(os);
-    expect([...cov.keys()].every(p => p.startsWith('src/'))).toBe(true);
-    const t = totals(cov);
-    const r = reportTotals(xml);
-    expect(t.lines).toEqual(r.lines);
-    expect(t.branches).toEqual(r.branches);
-  });
+  it.each(OSES)(
+    '%s: totals match the report and paths are repo-relative',
+    os => {
+      const xml = fx(`${os}.cobertura.xml`);
+      const cov = cobertura(os);
+      expect([...cov.keys()].every(p => p.startsWith('src/'))).toBe(true);
+      const t = totals(cov);
+      const r = reportTotals(xml);
+      expect(t.lines).toEqual(r.lines);
+      expect(t.branches).toEqual(r.branches);
+    },
+  );
 
   it('reads gcovr class lines only, not the copies under <methods>', () => {
     // Every line has hits from one place: the merged hits for a line equal
@@ -193,19 +221,31 @@ describe('lcov reader', () => {
   });
 
   it('is detected by content, and JaCoCo gets a helpful error', () => {
-    expect(detectCoverage('TN:\nSF:a.ts\nend_of_record\n', 'x').format).toBe('lcov');
-    expect(detectCoverage(fx('ubuntu.cobertura.xml'), 'x').format).toBe('cobertura');
+    expect(detectCoverage('TN:\nSF:a.ts\nend_of_record\n', 'x').format).toBe(
+      'lcov',
+    );
+    expect(detectCoverage(fx('ubuntu.cobertura.xml'), 'x').format).toBe(
+      'cobertura',
+    );
     expect(() =>
-      detectCoverage('<?xml version="1.0"?><report name="x"></report>', 'j.xml'),
+      detectCoverage(
+        '<?xml version="1.0"?><report name="x"></report>',
+        'j.xml',
+      ),
     ).toThrow(/JaCoCo/);
-    expect(() => detectCoverage('{"a":1}', 'x.json')).toThrow(/not lcov or Cobertura/);
+    expect(() => detectCoverage('{"a":1}', 'x.json')).toThrow(
+      /not lcov or Cobertura/,
+    );
   });
 });
 
 describe('merging across a matrix', () => {
   it('unions coverable lines and sums hits (the OSes really disagree)', () => {
     const per = OSES.map(cobertura);
-    const merged = per.reduce((m, c) => mergeCoverage(m, c), new Map() as Coverage);
+    const merged = per.reduce(
+      (m, c) => mergeCoverage(m, c),
+      new Map() as Coverage,
+    );
     const shared = 'src/serialport.cpp';
     const lines = per.map(c => c.get(shared)!.size);
     expect(new Set(lines).size).toBeGreaterThan(1);
@@ -215,7 +255,10 @@ describe('merging across a matrix', () => {
     expect(merged.has('src/serialport_linux.cpp')).toBe(true);
     expect(merged.has('src/darwin_list.cpp')).toBe(true);
     const line = [...merged.get(shared)!.keys()][0]!;
-    const sum = per.reduce((n, c) => n + (c.get(shared)!.get(line)?.hits ?? 0), 0);
+    const sum = per.reduce(
+      (n, c) => n + (c.get(shared)!.get(line)?.hits ?? 0),
+      0,
+    );
     expect(merged.get(shared)!.get(line)!.hits).toBe(sum);
   });
 
@@ -227,9 +270,13 @@ describe('merging across a matrix', () => {
 
   it('round-trips through the compact encoding', () => {
     const cov = cobertura('windows');
-    const back = decodeCoverage(JSON.parse(JSON.stringify(encodeCoverage(cov))));
+    const back = decodeCoverage(
+      JSON.parse(JSON.stringify(encodeCoverage(cov))),
+    );
     expect(totals(back)).toEqual(totals(cov));
-    expect(back.get('src/serialport.cpp')).toEqual(cov.get('src/serialport.cpp'));
+    expect(back.get('src/serialport.cpp')).toEqual(
+      cov.get('src/serialport.cpp'),
+    );
   });
 
   it('drops hostile entries when decoding', () => {
@@ -242,7 +289,9 @@ describe('merging across a matrix', () => {
     expect([...back.keys()]).toEqual(['ok.ts']);
     expect(back.get('ok.ts')!.get(1)).toEqual({ hits: 1, br: '10' });
     expect(back.get('ok.ts')!.get(2)).toEqual({ hits: 0 });
-    expect(() => decodeCoverage(new Array(100_001).fill({ p: 'a', l: [] }))).toThrow();
+    expect(() =>
+      decodeCoverage(new Array(100_001).fill({ p: 'a', l: [] })),
+    ).toThrow();
   });
 });
 
@@ -257,12 +306,17 @@ describe('components', () => {
   });
 
   it('parses config and matches globs', () => {
-    const c = parseComponents('# comment\nNative: src/**, *.h\nJS: lib/**/*.ts\nNative: binding.gyp');
+    const c = parseComponents(
+      '# comment\nNative: src/**, *.h\nJS: lib/**/*.ts\nNative: binding.gyp',
+    );
     expect(c).toEqual([
       { name: 'Native', patterns: ['src/**', '*.h', 'binding.gyp'] },
       { name: 'JS', patterns: ['lib/**/*.ts'] },
     ]);
-    const a = assignComponents(['src/a/b.cpp', 'lib/x.ts', 'lib/y.js', 'inc/z.h'], c);
+    const a = assignComponents(
+      ['src/a/b.cpp', 'lib/x.ts', 'lib/y.js', 'inc/z.h'],
+      c,
+    );
     expect(a.get('src/a/b.cpp')).toEqual(['Native']);
     expect(a.get('lib/x.ts')).toEqual(['JS']);
     expect(a.get('lib/y.js')).toEqual([]);
@@ -300,7 +354,13 @@ describe('patch coverage', () => {
 
   it('counts only coverable changed lines', () => {
     const cov: Coverage = new Map([
-      ['a.ts', new Map([[2, { hits: 1 }], [3, { hits: 0 }]])],
+      [
+        'a.ts',
+        new Map([
+          [2, { hits: 1 }],
+          [3, { hits: 0 }],
+        ]),
+      ],
       ['b.ts', new Map([[1, { hits: 1 }]])],
     ]);
     const p = patchCoverage(
@@ -319,7 +379,11 @@ describe('patch coverage', () => {
   });
 });
 
-function covUpload(os: Os, flags: string[], extra: Partial<Upload> = {}): Upload {
+function covUpload(
+  os: Os,
+  flags: string[],
+  extra: Partial<Upload> = {},
+): Upload {
   const id = identity('test', { os }, '');
   const cov = mergeCoverage(cobertura(os), lcov(os));
   return {
@@ -334,7 +398,9 @@ function covUpload(os: Os, flags: string[], extra: Partial<Upload> = {}): Upload
     sources: [],
     tests: [],
     coverage: {
-      sources: [{ format: 'cobertura', path: 'cpp.xml', files: cov.size, external: 0 }],
+      sources: [
+        { format: 'cobertura', path: 'cpp.xml', files: cov.size, external: 0 },
+      ],
       files: encodeCoverage(cov),
     },
     ...extra,
@@ -342,7 +408,13 @@ function covUpload(os: Os, flags: string[], extra: Partial<Upload> = {}): Upload
 }
 
 const ctx = (id: number, sha: string, time: string) => ({
-  run: { id, attempt: 1, number: id, workflow: 'CI', url: `https://github.com/o/r/actions/runs/${id}` },
+  run: {
+    id,
+    attempt: 1,
+    number: id,
+    workflow: 'CI',
+    url: `https://github.com/o/r/actions/runs/${id}`,
+  },
   commit: { sha, ref: 'refs/heads/main', branch: 'main', event: 'push' },
   now: new Date(time),
 });
@@ -358,24 +430,38 @@ describe('buildCoverage', () => {
   it('breaks down by flag and language, per upload too', () => {
     const uploads = OSES.map(os => covUpload(os, [os]));
     const b = buildCoverage(uploads, opts)!;
-    expect(Object.keys(b.coverage.flags)).toEqual(['macos', 'ubuntu', 'windows']);
+    expect(Object.keys(b.coverage.flags)).toEqual([
+      'macos',
+      'ubuntu',
+      'windows',
+    ]);
     expect(Object.keys(b.coverage.components)).toEqual(['C/C++', 'TypeScript']);
     const c = b.coverage.components;
     expect(c['C/C++']!.lines.total + c.TypeScript!.lines.total).toBe(
       b.coverage.totals.lines.total,
     );
     expect(b.perUpload.size).toBe(3);
-    expect(b.detail.groups.map(g => g.flags)).toEqual([['macos'], ['ubuntu'], ['windows']]);
+    expect(b.detail.groups.map(g => g.flags)).toEqual([
+      ['macos'],
+      ['ubuntu'],
+      ['windows'],
+    ]);
     // Upload validation keeps coverage intact.
-    expect(validateUpload(JSON.parse(JSON.stringify(uploads[0]))).coverage?.files).toEqual(
-      uploads[0]!.coverage!.files,
-    );
+    expect(
+      validateUpload(JSON.parse(JSON.stringify(uploads[0]))).coverage?.files,
+    ).toEqual(uploads[0]!.coverage!.files);
   });
 
   it('carries forward a missing flag from the baseline', () => {
-    const first = buildCoverage(OSES.map(os => covUpload(os, [os])), opts)!;
+    const first = buildCoverage(
+      OSES.map(os => covUpload(os, [os])),
+      opts,
+    )!;
     const now = [covUpload('ubuntu', ['ubuntu'])];
-    const without = buildCoverage(now, { ...opts, baselineDetail: first.detail })!;
+    const without = buildCoverage(now, {
+      ...opts,
+      baselineDetail: first.detail,
+    })!;
     expect(without.coverage.carriedForward).toEqual([]);
     const carried = buildCoverage(now, {
       ...opts,
@@ -402,7 +488,12 @@ describe('coverage storage and summary', () => {
   it('stores detail, index pairs and badges; prunes old detail; compares', async () => {
     const root = await mkdtemp(join(tmpdir(), 'sst-cov-'));
     try {
-      const opts = { repo: 'o/r', window: 30, detailWindow: 2, generator: { name: 'x', version: '0' } };
+      const opts = {
+        repo: 'o/r',
+        window: 30,
+        detailWindow: 2,
+        generator: { name: 'x', version: '0' },
+      };
       const runs = [1, 2, 3].map(i => {
         const uploads = OSES.slice(0, i).map(os => covUpload(os, [os]));
         const cov = buildCoverage(uploads, {
@@ -411,23 +502,51 @@ describe('coverage storage and summary', () => {
           components: [],
           carryforward: () => false,
         })!;
-        return { cov, ...buildRecord(uploads, { ...ctx(i, String(i).repeat(40), `2026-11-0${i}T10:00:00.000Z`), coverage: cov }) };
+        return {
+          cov,
+          ...buildRecord(uploads, {
+            ...ctx(i, String(i).repeat(40), `2026-11-0${i}T10:00:00.000Z`),
+            coverage: cov,
+          }),
+        };
       });
-      for (const r of runs) await applyRun(root, r.record, r.tests, { ...opts, detail: r.cov.detail });
+      for (const r of runs)
+        await applyRun(root, r.record, r.tests, {
+          ...opts,
+          detail: r.cov.detail,
+        });
 
-      expect((await readdir(join(root, 'data', 'detail'))).sort()).toEqual(['2-1.json', '3-1.json']);
-      const index = JSON.parse(await readFile(join(root, 'data', 'index.json'), 'utf8'));
+      expect((await readdir(join(root, 'data', 'detail'))).sort()).toEqual([
+        '2-1.json',
+        '3-1.json',
+      ]);
+      const index = JSON.parse(
+        await readFile(join(root, 'data', 'index.json'), 'utf8'),
+      );
       const last = index.runs[2].coverage;
-      expect(last.l).toEqual([runs[2]!.record.coverage!.totals.lines.hit, runs[2]!.record.coverage!.totals.lines.total]);
+      expect(last.l).toEqual([
+        runs[2]!.record.coverage!.totals.lines.hit,
+        runs[2]!.record.coverage!.totals.lines.total,
+      ]);
       expect(Object.keys(last.f)).toEqual(['macos', 'ubuntu', 'windows']);
-      for (const b of ['coverage.svg', 'coverage-c-cpp.svg', 'coverage-typescript.svg', 'flag-windows.svg'])
+      for (const b of [
+        'coverage.svg',
+        'coverage-c-cpp.svg',
+        'coverage-typescript.svg',
+        'flag-windows.svg',
+      ])
         expect(existsSync(join(root, 'badges', b))).toBe(true);
 
       const base = (await readBaseline(root, 'o/r', 'main', 99))!;
       expect(base.key).toBe('3-1');
       expect((await readDetail(root, base))?.groups.length).toBe(3);
       // Old run's detail is gone, so carryforward from it is simply skipped.
-      const old = JSON.parse(await readFile(join(root, runs[0]!.record.coverage!.detail.replace('2-1', '1-1')), 'utf8').catch(() => 'null'));
+      const old = JSON.parse(
+        await readFile(
+          join(root, runs[0]!.record.coverage!.detail.replace('2-1', '1-1')),
+          'utf8',
+        ).catch(() => 'null'),
+      );
       expect(old).toBeNull();
 
       const cmp = compare(runs[2]!.record, runs[2]!.tests, runs[1]!.record);
@@ -437,7 +556,9 @@ describe('coverage storage and summary', () => {
         coverageBadgeUrl: 'https://o.github.io/r/stats/badges/coverage.svg',
       });
       expect(md).toContain('### Coverage');
-      expect(md).toMatch(/\*\*Lines \d+\.\d\d% \(\d+\/\d+\)\*\* \([+-]\d+\.\d\d% vs `2222222`\)/);
+      expect(md).toMatch(
+        /\*\*Lines \d+\.\d\d% \(\d+\/\d+\)\*\* \([+−]\d+\.\d\d pts vs `2222222`\)/,
+      );
       expect(md).toContain('| Component | Lines | Δ | Branches | Files |');
       expect(md).toContain('| windows |');
       expect(md).not.toContain('No test results');
@@ -481,11 +602,18 @@ describe('gather with coverage', () => {
       });
       expect(u.coverage!.sources).toEqual([
         { format: 'lcov', path: 'coverage/lcov.info', files: 1, external: 1 },
-        { format: 'cobertura', path: 'coverage/other.xml', files: 0, external: 1 },
+        {
+          format: 'cobertura',
+          path: 'coverage/other.xml',
+          files: 0,
+          external: 1,
+        },
       ]);
       expect(u.coverage!.files).toEqual([{ p: 'src/a.ts', l: [1, 1, 1, 0] }]);
       expect(warnings).toEqual([
-        expect.stringContaining('coverage/other.xml: every file is outside the workspace'),
+        expect.stringContaining(
+          'coverage/other.xml: every file is outside the workspace',
+        ),
       ]);
     } finally {
       await rm(ws, { recursive: true, force: true });

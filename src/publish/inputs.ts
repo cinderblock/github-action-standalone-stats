@@ -6,6 +6,21 @@ import { parseComponents, type Component } from '../coverage/components.js';
 import type { CoverageFormat } from '../coverage/model.js';
 import { parseCoverageFormat } from '../coverage/read.js';
 import { DEFAULT_PREFIX } from '../upload.js';
+import { parseThresholds, type Rule } from '../thresholds.js';
+
+/** `auto` comments directly when the token can, and hands off to the
+ *  companion otherwise; `artifact` always hands off. */
+export type CommentMode = 'auto' | 'artifact' | 'never';
+
+export function parseCommentMode(raw: string): CommentMode {
+  const v = raw.trim().toLowerCase();
+  if (!v || v === 'auto' || v === 'true') return 'auto';
+  if (v === 'artifact') return 'artifact';
+  if (v === 'never' || v === 'false') return 'never';
+  throw new Error(
+    `Invalid comment: ${JSON.stringify(raw)} (expected auto, artifact or never)`,
+  );
+}
 
 export interface PublishInputs {
   /** Repo holding the stats branch, `owner/name`. */
@@ -39,6 +54,10 @@ export interface PublishInputs {
   pushAttempts: number;
   author: { name: string; email: string };
   commitMessage: string;
+  comment: CommentMode;
+  thresholds: Rule[];
+  thresholdStatus: boolean;
+  failOnThreshold: boolean;
 }
 
 export function parseBool(raw: string, name: string, dflt: boolean): boolean {
@@ -131,7 +150,11 @@ export function readPublishInputs(
       1,
       10000,
     ),
-    patchCoverage: parseBool(getInput('patch-coverage'), 'patch-coverage', true),
+    patchCoverage: parseBool(
+      getInput('patch-coverage'),
+      'patch-coverage',
+      true,
+    ),
     flags: parseList(getInput('flags')),
     id: getInput('id').trim(),
     matrix: getInput('matrix'),
@@ -175,6 +198,18 @@ export function readPublishInputs(
         '41898282+github-actions[bot]@users.noreply.github.com',
     },
     commitMessage: getInput('commit-message').trim(),
+    comment: parseCommentMode(getInput('comment')),
+    thresholds: parseThresholds(getInput('thresholds')),
+    thresholdStatus: parseBool(
+      getInput('threshold-status'),
+      'threshold-status',
+      true,
+    ),
+    failOnThreshold: parseBool(
+      getInput('fail-on-threshold'),
+      'fail-on-threshold',
+      false,
+    ),
   };
   const fmt = parseFormat(getInput('test-format'));
   if (fmt) inputs.testFormat = fmt;

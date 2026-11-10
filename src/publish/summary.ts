@@ -1,5 +1,10 @@
 import type { RunCoverage, RunRecord } from '../model.js';
-import { formatPct, pct, type CovTotals, type Ratio } from '../coverage/model.js';
+import {
+  formatPct,
+  pct,
+  type CovTotals,
+  type Ratio,
+} from '../coverage/model.js';
 import type { Comparison } from './merge.js';
 
 export interface SummaryLinks {
@@ -11,9 +16,27 @@ export interface SummaryLinks {
   note?: string;
 }
 
-const md = (s: string) => s.replace(/([\\`*_[\]<>|])/g, '\\$1');
-/** For inside a code span, where backslash escapes don't work. */
-const code = (s: string) => `\`${s.replace(/[`|]/g, '?')}\``;
+/**
+ * Escape text for Markdown. Also defuses `@user` mentions and `#123` /
+ * `owner/repo#123` references with a zero-width space, so a test name can't
+ * ping someone or cross-link an issue when this lands in a PR comment.
+ */
+export const md = (s: string) =>
+  s
+    .replace(/([\\`*_[\]<>|])/g, '\\$1')
+    // One pass, so the `#` in an inserted `&#8203;` isn't matched again.
+    .replace(/@(?=[\w-])|#(?=\d)/g, '$&&#8203;');
+/** For inside a code span, where backslash escapes don't work. Mentions
+ *  and references don't render inside code. */
+export const code = (s: string) => `\`${s.replace(/[`|\n]/g, '?')}\``;
+
+/** A fenced code block the text can't close early: the fence is longer than
+ *  any run of backticks inside. `indent` nests it in a list item. */
+export function fence(text: string, indent = ''): string {
+  const longest = Math.max(0, ...(text.match(/`+/g) ?? []).map(m => m.length));
+  const f = '`'.repeat(Math.max(3, longest + 1));
+  return [f, ...text.split('\n'), f].map(l => `${indent}${l}`).join('\n');
+}
 
 export function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms} ms`;
@@ -29,20 +52,21 @@ function signed(n: number): string {
 
 const LIST_LIMIT = 25;
 
-/** Percentage-point change, e.g. `+1.25`, or '' when either side is n/a. */
-function deltaPct(cur: Ratio, base: Ratio | undefined): string {
+/** Percentage-point change, e.g. `+1.25 pts`, or '' when either side is
+ *  n/a. Points, not percent: 80% → 81% is +1 pt, not +1.25%. */
+export function deltaPct(cur: Ratio, base: Ratio | undefined): string {
   const a = pct(cur);
   const b = base ? pct(base) : undefined;
   if (a === undefined || b === undefined) return '';
   const d = Math.round((a - b) * 100) / 100;
-  if (d === 0) return '±0%';
-  return `${d > 0 ? '+' : ''}${d.toFixed(2)}%`;
+  if (d === 0) return '±0';
+  return `${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(2)} pts`;
 }
 
 const ratio = (r: Ratio) =>
   r.total ? `${formatPct(r)} (${r.hit}/${r.total})` : 'n/a';
 
-function breakdown(
+export function breakdown(
   title: string,
   cur: Record<string, CovTotals & { carried?: true }>,
   base: Record<string, CovTotals> | undefined,
@@ -101,26 +125,30 @@ export function renderCoverage(
   if (Object.keys(cov.components).length > 1)
     out.push(...breakdown('Component', cov.components, base?.components));
   out.push(...breakdown('Flag', cov.flags, base?.flags));
-  const missed = cov.patch?.files.filter(f => f.hit < f.total) ?? [];
-  if (missed.length) {
-    const rows = missed
-      .slice(0, LIST_LIMIT)
-      .map(f => `| ${code(f.path)} | ${ratio(f)} | ${f.total - f.hit} |`);
-    out.push(
-      `<details><summary>Changed files with uncovered lines (${missed.length})</summary>`,
-      '',
-      '| File | Patch | Missed |',
-      '| --- | ---: | ---: |',
-      ...rows,
-      '',
-      missed.length > LIST_LIMIT
-        ? `…and ${missed.length - LIST_LIMIT} more\n`
-        : '',
-      '</details>',
-      '',
-    );
-  }
+  out.push(...missedFiles(cov));
   return out;
+}
+
+/** Changed files with uncovered lines, collapsed. Empty when none. */
+export function missedFiles(cov: RunCoverage): string[] {
+  const missed = cov.patch?.files.filter(f => f.hit < f.total) ?? [];
+  if (!missed.length) return [];
+  const rows = missed
+    .slice(0, LIST_LIMIT)
+    .map(f => `| ${code(f.path)} | ${ratio(f)} | ${f.total - f.hit} |`);
+  return [
+    `<details><summary>Changed files with uncovered lines (${missed.length})</summary>`,
+    '',
+    '| File | Patch | Missed |',
+    '| --- | ---: | ---: |',
+    ...rows,
+    '',
+    missed.length > LIST_LIMIT
+      ? `…and ${missed.length - LIST_LIMIT} more\n`
+      : '',
+    '</details>',
+    '',
+  ];
 }
 
 function list(title: string, ids: string[]): string {
@@ -206,7 +234,7 @@ export function renderSummary(
       const rows = failures.slice(0, LIST_LIMIT).map(f => {
         const where = f.uploads.map(k => labels.get(k) ?? k).join(', ');
         const msg = f.message
-          ? `\n\n  \`\`\`\n  ${f.message.split('\n').slice(0, 8).join('\n  ')}\n  \`\`\``
+          ? `\n\n${fence(f.message.split('\n').slice(0, 8).join('\n'), '  ')}`
           : '';
         return `- **${md(f.id)}** (${md(where)})${msg}`;
       });
