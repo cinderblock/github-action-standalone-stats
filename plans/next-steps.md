@@ -250,8 +250,10 @@ failed step; the same-repo comment first, then the `workflow_run` companion in t
   jobs green, `gh-pages@8c9d326`, live at
   https://cinderblock.github.io/github-action-standalone-stats/stats/; checked headless: overview,
   runs, tests and coverage render real data with no console errors
-- [ ] Phase 4 (branch `phase-4`): thresholds module, comment renderer, GitHub API helpers,
-  publish wiring, companion action, CI dogfood, README, tests
+- [x] Phase 4 built (branch `phase-4`, `4befccb`): `src/thresholds.ts`, `src/report.ts`
+  (payload, sanitizer, comment), `src/post.ts` (upsert, statuses, artifact hand-off),
+  `src/comment/main.ts` + `comment/action.yml`, publish wiring, CI `comment` job +
+  `stats-comment.yml`, README section, `test/report.test.ts` (102 tests pass). PR #27.
 - [ ] Phase 4 PR green, comment and statuses seen live on the PR; merge needs Cameron's yes
 
 Note: the master run on `2c77ef7` (Nov 8 11:35 PM PST (07:35Z Nov 9)) failed only on macOS with
