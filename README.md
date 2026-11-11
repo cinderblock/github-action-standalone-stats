@@ -12,6 +12,8 @@ per-component breakdowns, carryforward and patch coverage on pull requests.
 [![tests](https://cinderblock.github.io/github-action-standalone-stats/stats/badges/tests.svg)](https://cinderblock.github.io/github-action-standalone-stats/stats/)
 [![coverage](https://cinderblock.github.io/github-action-standalone-stats/stats/badges/coverage.svg)](https://cinderblock.github.io/github-action-standalone-stats/stats/)
 
+**[See it live: this repo's own dashboard →](https://cinderblock.github.io/github-action-standalone-stats/stats/)**
+
 ## What it does
 
 - Reads **JUnit XML**, **CTRF JSON** and **Allure 2 results**, detected
@@ -300,6 +302,8 @@ stored.
 
 `https://<owner>.github.io/<repo>/stats/` (or wherever your stats directory is
 served). Everything is client-side over the stored JSON; there's no server.
+This repo publishes its own:
+[cinderblock.github.io/github-action-standalone-stats/stats](https://cinderblock.github.io/github-action-standalone-stats/stats/).
 
 - **Overview**: the latest run on the main branch (pick another branch, or all
   of them), a stacked pass/fail/skip trend, a coverage trend (total, by flag or
