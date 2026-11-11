@@ -479,6 +479,10 @@ function checkPct(v, i) {
 var exact = (r) => r.total ? 100 * r.hit / r.total : undefined;
 var show = (p) => `${(Math.floor(p * 100) / 100).toFixed(2)}%`;
 var pts = (p) => `${(Math.round(p * 100) / 100).toFixed(2)} pts`;
+var change = (d) => {
+  const r = Math.round(d * 100) / 100;
+  return r === 0 ? "±0 pts" : r > 0 ? `+${pts(r)}` : `−${pts(-r)}`;
+};
 function ruleLabel(rule) {
   return "name" in rule ? `${rule.kind} ${rule.name}` : rule.kind;
 }
@@ -489,7 +493,12 @@ function evaluate(rules, cov, base) {
     const min = (r) => {
       const p = r ? exact(r) : undefined;
       if (p === undefined)
-        return { rule, group, label, text: "no data" };
+        return {
+          rule,
+          group,
+          label,
+          text: rule.kind === "patch" ? r ? "no coverable lines changed" : "no diff" : "no data"
+        };
       return {
         rule,
         group,
@@ -522,7 +531,7 @@ function evaluate(rules, cov, base) {
           label,
           actual: d,
           ok: d <= rule.value + 0.000000001,
-          text: `${cur < was ? `−${pts(was - cur)}` : `+${pts(cur - was)}`} vs baseline (max drop ${rule.value})`
+          text: `${change(cur - was)} vs baseline (max drop ${rule.value})`
         };
       }
     }

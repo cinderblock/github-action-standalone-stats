@@ -12,9 +12,6 @@ per-component breakdowns, carryforward and patch coverage on pull requests.
 [![tests](https://cinderblock.github.io/github-action-standalone-stats/stats/badges/tests.svg)](https://cinderblock.github.io/github-action-standalone-stats/stats/)
 [![coverage](https://cinderblock.github.io/github-action-standalone-stats/stats/badges/coverage.svg)](https://cinderblock.github.io/github-action-standalone-stats/stats/)
 
-> **Status:** pre-release. There are no tags yet, so pin a commit SHA if you
-> try it before `v1` is published.
-
 ## What it does
 
 - Reads **JUnit XML**, **CTRF JSON** and **Allure 2 results**, detected
@@ -59,7 +56,7 @@ jobs:
 
       - name: Publish stats
         if: ${{ !cancelled() }} # publish failures too
-        uses: cinderblock/github-action-standalone-stats@<sha>
+        uses: cinderblock/github-action-standalone-stats@v1
         with:
           tests: junit.xml
           coverage: coverage/lcov.info
@@ -88,7 +85,7 @@ jobs:
           node-version: ${{ matrix.node }}
       - run: npm ci
       - run: npx c8 --reporter=lcov npm test -- --reporter mocha-junit-reporter
-      - uses: cinderblock/github-action-standalone-stats/collect@<sha>
+      - uses: cinderblock/github-action-standalone-stats/collect@v1
         if: ${{ !cancelled() }}
         with:
           tests: test-results.xml
@@ -103,7 +100,7 @@ jobs:
       contents: write
       pages: read
     steps:
-      - uses: cinderblock/github-action-standalone-stats@<sha>
+      - uses: cinderblock/github-action-standalone-stats@v1
 ```
 
 `collect` tells matrix legs apart on its own (it reads `${{ toJSON(matrix) }}`

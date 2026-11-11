@@ -77,6 +77,11 @@ const exact = (r: Ratio) => (r.total ? (100 * r.hit) / r.total : undefined);
 /** Floored to 2 places, like every other percentage we show. */
 const show = (p: number) => `${(Math.floor(p * 100) / 100).toFixed(2)}%`;
 const pts = (p: number) => `${(Math.round(p * 100) / 100).toFixed(2)} pts`;
+/** Signed points change, `±0 pts` when there's none. */
+const change = (d: number) => {
+  const r = Math.round(d * 100) / 100;
+  return r === 0 ? '±0 pts' : r > 0 ? `+${pts(r)}` : `−${pts(-r)}`;
+};
 
 export function ruleLabel(rule: Rule): string {
   return 'name' in rule ? `${rule.kind} ${rule.name}` : rule.kind;
@@ -97,7 +102,18 @@ export function evaluate(
     const group: StatusGroup = rule.kind === 'patch' ? 'patch' : 'coverage';
     const min = (r: Ratio | undefined): RuleResult => {
       const p = r ? exact(r) : undefined;
-      if (p === undefined) return { rule, group, label, text: 'no data' };
+      if (p === undefined)
+        return {
+          rule,
+          group,
+          label,
+          text:
+            rule.kind === 'patch'
+              ? r
+                ? 'no coverable lines changed'
+                : 'no diff'
+              : 'no data',
+        };
       return {
         rule,
         group,
@@ -133,7 +149,7 @@ export function evaluate(
           actual: d,
           // Tolerate float noise at exactly the limit.
           ok: d <= rule.value + 1e-9,
-          text: `${cur < was ? `−${pts(was - cur)}` : `+${pts(cur - was)}`} vs baseline (max drop ${rule.value})`,
+          text: `${change(cur - was)} vs baseline (max drop ${rule.value})`,
         };
       }
     }
