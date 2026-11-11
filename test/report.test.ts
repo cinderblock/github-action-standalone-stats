@@ -171,6 +171,17 @@ describe('thresholds', () => {
     expect(evaluate(rules.slice(2, 3), coverage(800), undefined)[0]!.text).toBe(
       'no baseline',
     );
+    expect(ok[1]!.text).toBe('no diff');
+    expect(ok[2]!.text).toBe('−1.00 pts vs baseline (max drop 1)');
+    const same = evaluate(
+      rules.slice(1, 3),
+      coverage(800, [0, 0]),
+      coverage(800),
+    );
+    expect(same.map(x => x.text)).toEqual([
+      'no coverable lines changed',
+      '±0 pts vs baseline (max drop 1)',
+    ]);
   });
 
   it('groups commit statuses like codecov/project and codecov/patch', () => {
