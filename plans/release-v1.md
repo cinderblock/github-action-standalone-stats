@@ -6,6 +6,51 @@ Tag and release `v1.0.0` (plus a moving `v1` tag) on all three actions together,
 asked when the tags were first held: "released as a coherent set". Nothing is tagged until
 Cameron says yes to this exact plan.
 
+## Status: released 2026-11-10, ~4:30 PM PST (~00:30Z Nov 11)
+
+Cameron approved the whole plan ("Yes, all of it") and the rename of debug-list-files' old `v1`
+branch.
+
+- [x] [PR #28](https://github.com/cinderblock/github-action-standalone-stats/pull/28) merged: `fast-xml-parser` 5.12.0. Dependabot alert 128 closed.
+- [x] Sibling PRs merged.
+  - [debug-list-files #24](https://github.com/cinderblock/github-action-debug-list-files/pull/24)
+    (`b47d307`) fixed:
+    - **the diff never printed**: lists were keyed by `GITHUB_ACTION`, which differs per step;
+    - dotfiles are listed;
+    - the default filter is anchored;
+    - CI checks the diff.
+  - [working-directory #24](https://github.com/cinderblock/github-action-working-directory/pull/24)
+    (`c4c9e1f`) fixed:
+    - **any clone failure silently started an empty orphan branch**;
+    - `repo` accepts `owner/name`;
+    - `working-directory` is required;
+    - a full round-trip CI test.
+  - Both READMEs rewritten.
+- [x] [PR #29](https://github.com/cinderblock/github-action-standalone-stats/pull/29) merged (`866904c`):
+  - README `@v1`;
+  - "±0 pts";
+  - "no coverable lines changed".
+- [x] debug-list-files' 2020 `v1` **branch** (node12) renamed to `archive/v1-2020`, so `@v1` isn't
+      ambiguous. working-directory's 2020 `v0` branch was left alone; it doesn't clash.
+- [x] Annotated `v1.0.0` plus lightweight `v1` tags on each master tip, and GitHub releases:
+  - [working-directory](https://github.com/cinderblock/github-action-working-directory/releases/tag/v1.0.0)
+  - [debug-list-files](https://github.com/cinderblock/github-action-debug-list-files/releases/tag/v1.0.0)
+  - [standalone-stats](https://github.com/cinderblock/github-action-standalone-stats/releases/tag/v1.0.0)
+- [x] Verified by run 42931499392 on a throwaway `check-v1` branch, deleted afterwards:
+  - every `@v1` resolved to the release commit;
+  - the debug-list-files diff printed;
+  - `collect@v1` + publish `@v1` counted 2 passed;
+  - working-directory `@v1` cloned `gh-pages`.
+- Not done (not asked): Marketplace listing.
+
+## Findings
+
+- **Old deployment branches can shadow version tags.** debug-list-files had a `v1` branch from a
+  2020 "Automated deployment" workflow. Check for `v*` branches before tagging.
+- Git Bash rewrites env values that contain `/` (MSYS path conversion), so a local test of a regex
+  `INPUT_FILTER` saw `C:/Program Files/Git/` inside the value. Use `MSYS_NO_PATHCONV=1` and a
+  Windows path for local action runs.
+
 ## Readiness (checked 2026-11-10, ~4:10 PM PST (~00:10Z Nov 11))
 
 All three repos have no tags, no releases and no open PRs except the one listed below.

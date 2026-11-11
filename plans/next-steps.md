@@ -65,7 +65,8 @@ Order of work, as Cameron set it:
    components, carryforward, patch coverage, coverage badges.
 4. ✅ Phase 3, viewer SPA: React + Vite dashboard (runs, tests, coverage tree, per-line view).
 5. ✅ Phase 4, PR comments (`workflow_run` companion), thresholds (`8cfa15b`).
-6. ▶ **(current)** Release as a set with the two sibling actions (confirming scope).
+6. ✅ Released v1.0.0 (plus moving `v1`) on all three actions, 2026-11-10. See
+   `plans/release-v1.md`.
 
 ### Phase 2 design (decided while building, 2026-11-08)
 
@@ -216,7 +217,7 @@ failed step; the same-repo comment first, then the `workflow_run` companion in t
 - **fast-xml-parser returns text-only elements as strings**, so `children()` (objects only) lost
   every Cobertura `<source>`. Read them directly.
 - **An effect that returns a value crashes React on cleanup.** `useEffect(() => window.scrollTo(0, 0))`
-  returned something truthy in Chromium; React called it as the cleanup: "destroy_ is not a
+  returned something truthy in Chromium; React called it as the cleanup: "destroy\_ is not a
   function" on every navigation. Effects always get block bodies. Only the headless e2e run caught it.
 - **The publisher's viewer copy needs `assets/` cleared first.** Vite asset names are content-hashed,
   so a plain `cp` would leave every old version's bundle on the branch. `applyRun` removes `assets/`.
@@ -251,27 +252,27 @@ failed step; the same-repo comment first, then the `workflow_run` companion in t
       `gh-pages@c658d21`, detail file, `coverage.svg` (87.4%), TypeScript component and
       Linux/Windows/macOS flag badges live on Pages; push patch coverage 749/832
 - [x] Phase 3 dashboard built (branch `phase-3`): overview, runs, run, tests, test, coverage
-  tree and per-line pages; demo data generator; unit tests (`test/viewer.test.ts`); Playwright
-  e2e on desktop and phone sizes (21 pass); CI `dashboard` job; README section
+      tree and per-line pages; demo data generator; unit tests (`test/viewer.test.ts`); Playwright
+      e2e on desktop and phone sizes (21 pass); CI `dashboard` job; README section
 - [x] Phase 3 PR #26 green on all 6 checks; squash-merged as `d214827` on Cameron's yes
-  (2026-11-10)
+      (2026-11-10)
 - [x] First master run with the dashboard (run 42909588933, Nov 10 1:55 PM PST (21:55Z)): all
-  jobs green, `gh-pages@8c9d326`, live at
-  https://cinderblock.github.io/github-action-standalone-stats/stats/; checked headless: overview,
-  runs, tests and coverage render real data with no console errors
+      jobs green, `gh-pages@8c9d326`, live at
+      https://cinderblock.github.io/github-action-standalone-stats/stats/; checked headless: overview,
+      runs, tests and coverage render real data with no console errors
 - [x] Phase 4 built (branch `phase-4`, `4befccb`): `src/thresholds.ts`, `src/report.ts`
-  (payload, sanitizer, comment), `src/post.ts` (upsert, statuses, artifact hand-off),
-  `src/comment/main.ts` + `comment/action.yml`, publish wiring, CI `comment` job +
-  `stats-comment.yml`, README section, `test/report.test.ts` (102 tests pass). PR #27.
+      (payload, sanitizer, comment), `src/post.ts` (upsert, statuses, artifact hand-off),
+      `src/comment/main.ts` + `comment/action.yml`, publish wiring, CI `comment` job +
+      `stats-comment.yml`, README section, `test/report.test.ts` (102 tests pass). PR #27.
 - [x] Phase 4 PR #27 green (9 checks), live on the PR (Nov 10, ~3:30 PM PST (~23:30Z)). The
-  companion job posted the comment and both statuses. A second push edited the same comment
-  (still 1 comment). Polish from the first live run is in `1232dc2`.
+      companion job posted the comment and both statuses. A second push edited the same comment
+      (still 1 comment). Polish from the first live run is in `1232dc2`.
 - [x] PR #27 squash-merged as `8cfa15b` on Cameron's yes (2026-11-10). The master run
-  (42926631158) is green on all 7 jobs and posted both statuses on `8cfa15b`, linking the
-  dashboard's run page. `Stats comment` is registered and correctly skipped the same-repo run. A
-  real fork PR is the only path not exercised yet.
-- [ ] Release as a set with the sibling actions: Cameron answered "yes" twice on 2026-11-10;
-  confirming that the second covers the release and its scope before tagging anything.
+      (42926631158) is green on all 7 jobs and posted both statuses on `8cfa15b`, linking the
+      dashboard's run page. `Stats comment` is registered and correctly skipped the same-repo run. A
+      real fork PR is the only path not exercised yet.
+- [x] Released v1.0.0 + `v1` on all three `github-action-*` repos (Cameron: "Yes, all of it").
+      The details and verification are in `plans/release-v1.md`.
 
 Note: the master run on `2c77ef7` (Nov 8 11:35 PM PST (07:35Z Nov 9)) failed only on macOS with
 `Unexpected HTTP response: 504` during setup, before any test ran. Transient runner-side download
@@ -291,6 +292,6 @@ reporter plugins yet (CTRF + JUnit cover the gaps).
 ## Things not to do
 
 - Don't work in the `Claude Update All` checkout.
-- Don't tag or release.
+- Don't move the `v1` tags without saying so: every user runs what they point at.
 - Don't push to or modify `cinderblock/bindings-cpp` / `node-serialport`.
 - Don't delete `archive/*` branches. Don't force-push `gh-pages`.
