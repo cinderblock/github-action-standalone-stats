@@ -7,7 +7,7 @@ import {
   pct,
   formatPct,
   DefaultArtifactClient
-} from "./main-9x83tt5p.js";
+} from "./main-thpahjqj.js";
 
 // src/coverage/patch.ts
 function addedLines(patch) {
